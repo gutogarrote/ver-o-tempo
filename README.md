@@ -1,2 +1,2 @@
-# ver-o-tempo
+# Ver o Tempo
 Visualização do tempo para rotinas com crianças
