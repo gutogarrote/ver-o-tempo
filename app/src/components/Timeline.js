@@ -1,20 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import TimeIndicator from './TimeIndicator';
 
-const Timeline = ({ routine }) => {
-  const [currentTime, setCurrentTime] = useState(new Date());
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
+const Timeline = ({ routine, endTime, currentTime }) => {
   const totalDuration = routine.tasks.reduce((sum, task) => sum + task.duration, 0);
 
   const routineEndTime = new Date();
-  const [endHour, endMinute] = routine.endTime.split(':').map(Number);
+  const [endHour, endMinute] = endTime.split(':').map(Number);
   routineEndTime.setHours(endHour, endMinute, 0, 0);
 
   const routineStartTime = new Date(routineEndTime.getTime() - totalDuration * 60 * 1000);
