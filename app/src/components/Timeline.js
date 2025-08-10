@@ -3,6 +3,15 @@ import TimeIndicator from './TimeIndicator';
 
 const Timeline = ({ routine, endTime, currentTime }) => {
   // Calculate timeline dimensions and time positions
+  
+  // Helper function to determine text color based on background brightness
+  const getContrastColor = (hexColor) => {
+    const r = parseInt(hexColor.substr(1, 2), 16);
+    const g = parseInt(hexColor.substr(3, 2), 16);
+    const b = parseInt(hexColor.substr(5, 2), 16);
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    return brightness > 128 ? '#000000' : '#FFFFFF';
+  };
   const totalDuration = routine.tasks.reduce((sum, task) => sum + task.duration, 0);
 
   const routineEndTime = new Date();
@@ -33,7 +42,9 @@ const Timeline = ({ routine, endTime, currentTime }) => {
         {routine.tasks.map((task, index) => {
           const startPercentage = (cumulativeTime / totalDuration) * 100;
           const taskWidth = (task.duration / totalDuration) * 100;
-          const colorCombo = colorCombinations[index % colorCombinations.length];
+          // Use task's actual color if available, fallback to color combinations
+          const taskBgColor = task.color || colorCombinations[index % colorCombinations.length].bg;
+          const taskTextColor = getContrastColor(taskBgColor);
           
           cumulativeTime += task.duration;
           
@@ -44,8 +55,8 @@ const Timeline = ({ routine, endTime, currentTime }) => {
               style={{
                 left: `${startPercentage}%`,
                 width: `${taskWidth}%`,
-                backgroundColor: colorCombo.bg,
-                color: colorCombo.text
+                backgroundColor: taskBgColor,
+                color: taskTextColor
               }}
             >
               {/* Task content with icon over name */}

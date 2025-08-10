@@ -9,8 +9,8 @@
         { "id": 3, "name": "Lavar o rosto", "duration": 5, "color": "#F87171", "icon": "💦" },
         { "id": 4, "name": "Escovar os Dentes", "duration": 5, "color": "#60A5FA", "icon": "🦷" },
         { "id": 5, "name": "Trocar de Roupa", "duration": 10, "color": "#34D399", "icon": "👕" },
-        { "id": 5, "name": "Xixi tático", "duration": 10, "color": "#10094D", "icon": "🚽" },
-        { "id": 6, "name": "Sair de Casa", "duration": 5, "color": "#A78BFA", "icon": "👟" }
+        { "id": 7, "name": "Xixi tático", "duration": 10, "color": "#10094D", "icon": "🚽" },
+        { "id": 8, "name": "Sair de Casa", "duration": 5, "color": "#A78BFA", "icon": "👟" }
       ]
     },
     "evening": {
