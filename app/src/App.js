@@ -75,7 +75,7 @@ function App() {
           {isEditing ? 'Cancel' : 'Edit'}
         </button>
       </header>
-      <main className="p-4">
+      <main className="p-0">
         {getDisplay()}
       </main>
       <AudioAlerts routine={selectedRoutine} currentTime={currentTime} />

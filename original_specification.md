@@ -1,11 +1,13 @@
 # Linear Day Timeline — Visual & Functional Canvas
 
 ## 1. Project Vision
+
 Create a simple web app to visualize the passage of time linearly (horizontally), showing sequential daily tasks as colored blocks on a timeline. This is designed for children and families who need to visualize routines without needing to read traditional clocks. Tasks are clearly indicated as periods (blocks) of time, with real-time progress, visual cues, and gentle sound alerts.
 
 ---
 
-## 2. Key Concepts
+## 2. Key ConceptsO
+
 - **Linear Timeline v1:** A full-width horizontal bar representing the day, left (start) to right (end).
 - **Linear Timeline v2:** If tasks are small in duration, consider a larger, zoomed in horizontal timeline in the middle of the screen for better visibility of the passing of time in the current task, with a smaller overview full period timeline at the top or bottom. The "Now" indicator would be fixed in the screen so the timeline would move and the indicator would stay put. "Now" should be about 25% from left to right, so you can see more of the future tasks than past tasks.
 - **Tasks (Blocks):** Each task is a block/segment on the timeline with a duration, with width proportional to task duration, colored and possibly with an icon or image, with a label. Start and end time will be defined by Routine end time (and calculated start time from task durations).
@@ -25,7 +27,6 @@ Create a simple web app to visualize the passage of time linearly (horizontally)
 - **Profile (Future Option):** Possibility to have multiple user profiles/routines (optional, for v2).
 - **Accessing the App:** Via web browser, just input URL,no login required.
 - **Responsive Design:** Works on TV, tablet, phone, PC.
- 
 
 ---
 
