@@ -4,6 +4,7 @@ import EndTimeSetter from './components/EndTimeSetter';
 import Timeline from './components/Timeline';
 import AudioAlerts from './components/AudioAlerts';
 import RoutineEditor from './components/RoutineEditor';
+import DefaultRoutineEditor from './components/DefaultRoutineEditor';
 import './App.css';
 
 function App() {
@@ -12,8 +13,10 @@ function App() {
   const [finalEndTime, setFinalEndTime] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isEditing, setIsEditing] = useState(false);
+  const [isEditingDefaults, setIsEditingDefaults] = useState(false);
 
   useEffect(() => {
+    // Load routines from localStorage first, fallback to routines.json
     const storedRoutines = localStorage.getItem('routines');
     if (storedRoutines) {
       setRoutines(JSON.parse(storedRoutines));
@@ -50,7 +53,25 @@ function App() {
     setIsEditing(false);
   };
 
+  const handleSaveDefaultRoutines = (updatedRoutines) => {
+    setRoutines(updatedRoutines);
+    localStorage.setItem('routines', JSON.stringify(updatedRoutines));
+    setIsEditingDefaults(false);
+    // Reset selected routine to null to go back to routine selector
+    setSelectedRoutine(null);
+    setFinalEndTime(null);
+  };
+
   const getDisplay = () => {
+    if (isEditingDefaults) {
+      return (
+        <DefaultRoutineEditor 
+          routines={routines} 
+          onSave={handleSaveDefaultRoutines}
+          onCancel={() => setIsEditingDefaults(false)}
+        />
+      );
+    }
     if (isEditing) {
       return <RoutineEditor routine={selectedRoutine} onSave={handleSaveRoutine} />;
     }
@@ -58,7 +79,7 @@ function App() {
       return <Timeline routine={selectedRoutine} endTime={finalEndTime} currentTime={currentTime} />;
     }
     if (selectedRoutine) {
-      const defaultEndTime = selectedRoutine.name === 'Manhã' ? '05:30' : '23:59';
+      const defaultEndTime = selectedRoutine.endTime || (selectedRoutine.name === 'Manhã' ? '05:30' : '23:59');
       return <EndTimeSetter defaultEndTime={defaultEndTime} onSetEndTime={handleSetEndTime} />;
     }
     return <RoutineSelector routines={routines} onSelectRoutine={handleSelectRoutine} />;
@@ -71,9 +92,22 @@ function App() {
           <h1 className="text-2xl font-bold text-gray-800">Ver o Tempo</h1>
           <p className="text-lg text-gray-600">{currentTime.toLocaleTimeString()}</p>
         </div>
-        <button onClick={() => setIsEditing(!isEditing)} className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded">
-          {isEditing ? 'Cancel' : 'Edit'}
-        </button>
+        <div className="flex space-x-2">
+          <button 
+            onClick={() => setIsEditingDefaults(!isEditingDefaults)} 
+            className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded"
+          >
+            {isEditingDefaults ? 'Cancelar' : 'Editar Rotinas'}
+          </button>
+          {selectedRoutine && !isEditingDefaults && (
+            <button 
+              onClick={() => setIsEditing(!isEditing)} 
+              className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded"
+            >
+              {isEditing ? 'Cancelar' : 'Editar'}
+            </button>
+          )}
+        </div>
       </header>
       <main className="p-0">
         {getDisplay()}
