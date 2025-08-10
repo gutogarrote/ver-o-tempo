@@ -1,1 +1,5 @@
-
+- [ ] Fix routine saving logic
+- [ ] Restyle the timeline to be full-width and taller
+- [ ] Make the routine selector dynamic (based on the day of the week)
+- [ ] Add visual feedback for completed tasks
+- [ ] Replace placeholder audio files with actual sounds
