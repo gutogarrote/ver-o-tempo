@@ -20,6 +20,10 @@ This document tracks the development progress, decisions made, and next steps fo
 
 *   **Functionality:**
     *   **Timeline Logic:** The timeline now scrolls automatically based on the current time and the routine's defined end time.
+    *   **Timeline Redesign (cldcd):** Updated timeline to be fixed with start time at left and end time at right. The "Now" indicator moves along the timeline instead of scrolling. Increased timeline height and added responsive design for mobile devices.
+    *   **Enhanced NOW Line (cldcd):** Added dramatic glow effects with multiple shadow layers, enhanced depth with gradients and inner glow. NOW line now displays current time prominently above it for easy time checking. Changed "NOW" to "AGORA" in Portuguese.
+    *   **Task Improvements (cldcd):** Added task duration display under task names in lighter font. Updated task colors to use vibrant, professional color combinations with proper contrast ratios.
+    *   **Responsive Design (cldcd):** Timeline is now centered on screen with responsive heights (h-32 on mobile to h-56 on large screens) and proper padding for different screen sizes.
     *   **Data Management:**
         *   Routines are loaded from a `routines.json` file.
         *   Routine data is stored in the browser's `localStorage` to persist changes.

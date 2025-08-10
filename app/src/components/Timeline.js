@@ -2,6 +2,7 @@ import React from 'react';
 import TimeIndicator from './TimeIndicator';
 
 const Timeline = ({ routine, endTime, currentTime }) => {
+  // Calculate timeline dimensions and time positions
   const totalDuration = routine.tasks.reduce((sum, task) => sum + task.duration, 0);
 
   const routineEndTime = new Date();
@@ -11,28 +12,63 @@ const Timeline = ({ routine, endTime, currentTime }) => {
   const routineStartTime = new Date(routineEndTime.getTime() - totalDuration * 60 * 1000);
 
   const timeElapsed = (currentTime - routineStartTime) / 1000 / 60; // in minutes
-  const percentageElapsed = (timeElapsed / totalDuration) * 100;
+  const percentageElapsed = Math.max(0, Math.min(100, (timeElapsed / totalDuration) * 100));
 
+  // Color combinations: background, text
+  const colorCombinations = [
+    { bg: '#FFBE0B', text: '#000000' },
+    { bg: '#8338EC', text: '#FFFFFF' },
+    { bg: '#FF006E', text: '#FFFFFF' },
+    { bg: '#FB5607', text: '#FFFFFF' },
+    { bg: '#3A86FF', text: '#FFFFFF' },
+    { bg: '#031BF5', text: '#FFFFFF' }
+  ];
+
+  let cumulativeTime = 0;
+  
   return (
-    <div className="relative w-full h-24 bg-gray-200 rounded-lg overflow-hidden">
-      <div
-        className="absolute top-0 left-0 h-full flex"
-        style={{ transform: `translateX(-${percentageElapsed}%)` }}
-      >
-        {routine.tasks.map(task => (
-          <div
-            key={task.id}
-            className="h-full flex items-center justify-center"
-            style={{
-              width: `${(task.duration / totalDuration) * 100}vw`,
-              backgroundColor: task.color,
-            }}
-          >
-            <span className="text-white font-bold text-sm">{task.icon} {task.name}</span>
-          </div>
-        ))}
+    // Full-width timeline container with vertical centering
+    <div className="flex items-center justify-center min-h-screen w-full">
+      <div className="relative w-full h-32 sm:h-40 md:h-48 lg:h-56 bg-gray-200 rounded-lg shadow-lg" style={{ marginTop: '-10vh' }}>
+        {routine.tasks.map((task, index) => {
+          const startPercentage = (cumulativeTime / totalDuration) * 100;
+          const taskWidth = (task.duration / totalDuration) * 100;
+          const colorCombo = colorCombinations[index % colorCombinations.length];
+          
+          cumulativeTime += task.duration;
+          
+          return (
+            <div
+              key={task.id}
+              className="absolute top-0 h-full flex flex-col items-center justify-center border-r border-gray-300"
+              style={{
+                left: `${startPercentage}%`,
+                width: `${taskWidth}%`,
+                backgroundColor: colorCombo.bg,
+                color: colorCombo.text
+              }}
+            >
+              {/* Task content with icon over name */}
+              <div className="text-center px-1 sm:px-2 flex flex-col items-center">
+                <div className="text-2xl sm:text-3xl md:text-4xl mb-1">
+                  {task.icon}
+                </div>
+                <div className="font-bold text-xs sm:text-sm md:text-base">
+                  {task.name}
+                </div>
+                <div className="text-xs sm:text-sm font-light opacity-80 mt-1">
+                  {task.duration} minuto{task.duration !== 1 ? 's' : ''}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        <TimeIndicator 
+          currentPercentage={percentageElapsed}
+          currentTime={currentTime}
+          routineStartTime={routineStartTime}
+        />
       </div>
-      <TimeIndicator />
     </div>
   );
 };
