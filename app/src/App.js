@@ -16,18 +16,28 @@ function App() {
   const [isEditingDefaults, setIsEditingDefaults] = useState(false);
 
   useEffect(() => {
-    // Load routines from localStorage first, fallback to routines.json
-    const storedRoutines = localStorage.getItem('routines');
-    if (storedRoutines) {
-      setRoutines(JSON.parse(storedRoutines));
-    } else {
-      fetch('/routines.json')
-        .then(response => response.json())
-        .then(data => {
-          setRoutines(data);
-          localStorage.setItem('routines', JSON.stringify(data));
-        });
-    }
+    // Clear localStorage if corrupted and reload from fresh routines.json
+    localStorage.removeItem('routines');
+    
+    fetch('/routines.json')
+      .then(response => response.json())
+      .then(data => {
+        setRoutines(data);
+        localStorage.setItem('routines', JSON.stringify(data));
+      });
+    
+    // TODO: Uncomment below and remove above after testing
+    // const storedRoutines = localStorage.getItem('routines');
+    // if (storedRoutines) {
+    //   setRoutines(JSON.parse(storedRoutines));
+    // } else {
+    //   fetch('/routines.json')
+    //     .then(response => response.json())
+    //     .then(data => {
+    //       setRoutines(data);
+    //       localStorage.setItem('routines', JSON.stringify(data));
+    //     });
+    // }
 
     const timer = setInterval(() => {
       setCurrentTime(new Date());
@@ -57,7 +67,8 @@ function App() {
     setRoutines(updatedRoutines);
     localStorage.setItem('routines', JSON.stringify(updatedRoutines));
     setIsEditingDefaults(false);
-    // Reset selected routine to null to go back to routine selector
+    // Reset all editing states to go back to routine selector
+    setIsEditing(false);
     setSelectedRoutine(null);
     setFinalEndTime(null);
   };
@@ -68,14 +79,17 @@ function App() {
         <DefaultRoutineEditor 
           routines={routines} 
           onSave={handleSaveDefaultRoutines}
-          onCancel={() => setIsEditingDefaults(false)}
+          onCancel={() => {
+            setIsEditingDefaults(false);
+            setIsEditing(false); // Reset editing state when canceling
+          }}
         />
       );
     }
-    if (isEditing) {
+    if (isEditing && selectedRoutine) {
       return <RoutineEditor routine={selectedRoutine} onSave={handleSaveRoutine} />;
     }
-    if (finalEndTime) {
+    if (finalEndTime && selectedRoutine) {
       return <Timeline routine={selectedRoutine} endTime={finalEndTime} currentTime={currentTime} />;
     }
     if (selectedRoutine) {

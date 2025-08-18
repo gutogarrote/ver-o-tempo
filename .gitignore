@@ -1,6 +1,8 @@
 .DS_Store
 ._*
 Thumbs.db
+local_comments/
+2025-08-13-claudecode-the-messages-below-were-generated-by.txt
 
 # Claude Code configuration
 .claude/
