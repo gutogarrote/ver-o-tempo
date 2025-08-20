@@ -5,6 +5,8 @@ import Timeline from './components/Timeline';
 import AudioAlerts from './components/AudioAlerts';
 import RoutineEditor from './components/RoutineEditor';
 import DefaultRoutineEditor from './components/DefaultRoutineEditor';
+import Home from './pages/Home';
+import ErrorBoundary from './components/ErrorBoundary';
 import './App.css';
 
 function App() {
@@ -14,6 +16,7 @@ function App() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isEditing, setIsEditing] = useState(false);
   const [isEditingDefaults, setIsEditingDefaults] = useState(false);
+  const useNewUI = true;
 
   useEffect(() => {
     // Clear localStorage if corrupted and reload from fresh routines.json
@@ -24,6 +27,9 @@ function App() {
       .then(data => {
         setRoutines(data);
         localStorage.setItem('routines', JSON.stringify(data));
+      })
+      .catch(error => {
+        console.error('Error loading routines:', error);
       });
     
     // TODO: Uncomment below and remove above after testing
@@ -74,6 +80,12 @@ function App() {
   };
 
   const getDisplay = () => {
+    // Use new UI if enabled and not in editing modes
+    if (useNewUI && !isEditingDefaults && !isEditing) {
+      return <Home routines={routines} currentTime={currentTime} />;
+    }
+    
+    // Original UI for editing modes or when new UI is disabled
     if (isEditingDefaults) {
       return (
         <DefaultRoutineEditor 
@@ -100,34 +112,45 @@ function App() {
   };
 
   return (
-    <div className="bg-gray-100 min-h-screen">
-      <header className="bg-white shadow-md p-4 flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">Ver o Tempo</h1>
-          <p className="text-lg text-gray-600">{currentTime.toLocaleTimeString()}</p>
-        </div>
-        <div className="flex space-x-2">
-          <button 
-            onClick={() => setIsEditingDefaults(!isEditingDefaults)} 
-            className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded"
-          >
-            {isEditingDefaults ? 'Cancelar' : 'Editar Rotinas'}
-          </button>
-          {selectedRoutine && !isEditingDefaults && (
-            <button 
-              onClick={() => setIsEditing(!isEditing)} 
-              className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded"
-            >
-              {isEditing ? 'Cancelar' : 'Editar'}
-            </button>
-          )}
-        </div>
-      </header>
-      <main className="p-0">
-        {getDisplay()}
-      </main>
-      <AudioAlerts routine={selectedRoutine} currentTime={currentTime} />
-    </div>
+    <ErrorBoundary>
+      <div className="bg-gray-100 min-h-screen">
+        {/* Show new UI or original header based on mode */}
+        {useNewUI && !isEditingDefaults && !isEditing ? (
+          // New UI handles its own layout
+          getDisplay()
+        ) : (
+          // Original UI with header
+          <>
+            <header className="bg-white shadow-md p-4 flex justify-between items-center">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-800">Ver o Tempo</h1>
+                <p className="text-lg text-gray-600">{currentTime.toLocaleTimeString()}</p>
+              </div>
+              <div className="flex space-x-2">
+                <button 
+                  onClick={() => setIsEditingDefaults(!isEditingDefaults)} 
+                  className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded"
+                >
+                  {isEditingDefaults ? 'Cancelar' : 'Editar Rotinas'}
+                </button>
+                {selectedRoutine && !isEditingDefaults && (
+                  <button 
+                    onClick={() => setIsEditing(!isEditing)} 
+                    className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded"
+                  >
+                    {isEditing ? 'Cancelar' : 'Editar'}
+                  </button>
+                )}
+              </div>
+            </header>
+            <main className="p-0">
+              {getDisplay()}
+            </main>
+          </>
+        )}
+        <AudioAlerts routine={selectedRoutine} currentTime={currentTime} />
+      </div>
+    </ErrorBoundary>
   );
 }
 
