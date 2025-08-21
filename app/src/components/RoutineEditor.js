@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const RoutineEditor = ({ routine, onSave }) => {
+const RoutineEditor = ({ routine, onSave, onCancel }) => {
   const [tasks, setTasks] = useState(routine?.tasks || []);
   
   // Guard against null routine
@@ -9,7 +9,7 @@ const RoutineEditor = ({ routine, onSave }) => {
   }
 
   const handleAddTask = () => {
-    const newTask = { id: Date.now(), name: 'New Task', duration: 10, color: '#CCCCCC', icon: '✨' };
+    const newTask = { id: Date.now(), name: 'New Task', minutes: 10, color: '#CCCCCC', icon: '✨' };
     setTasks([...tasks, newTask]);
   };
 
@@ -90,8 +90,8 @@ const RoutineEditor = ({ routine, onSave }) => {
             />
             <input
               type="number"
-              value={task.duration}
-              onChange={(e) => handleTaskChange(task.id, 'duration', parseInt(e.target.value, 10))}
+              value={task.minutes}
+              onChange={(e) => handleTaskChange(task.id, 'minutes', parseInt(e.target.value, 10))}
               className="border p-1 rounded w-16 text-center"
               min="1"
             />
@@ -124,8 +124,13 @@ const RoutineEditor = ({ routine, onSave }) => {
           </div>
         ))}
       </div>
-      <button onClick={handleAddTask} className="bg-green-500 text-white p-2 rounded mt-4">Add Task</button>
-      <button onClick={handleSave} className="bg-blue-500 text-white p-2 rounded mt-4 ml-2">Save Routine</button>
+      <div className="flex gap-2 mt-4">
+        <button onClick={handleAddTask} className="bg-green-500 text-white p-2 rounded">Add Task</button>
+        <button onClick={handleSave} className="bg-blue-500 text-white p-2 rounded">Save Routine</button>
+        {onCancel && (
+          <button onClick={onCancel} className="bg-gray-500 text-white p-2 rounded">Cancel</button>
+        )}
+      </div>
     </div>
   );
 };

@@ -6,11 +6,11 @@ export function locateTask(elapsedMinutes, tasks) {
   }
   
   let acc = 0;
-  const total = tasks.reduce((s, t) => s + (t?.duration || 0), 0);
+  const total = tasks.reduce((s, t) => s + (t?.minutes || 0), 0);
   const clamp = Math.min(Math.max(0, elapsedMinutes), total);
   
   for (let i = 0; i < tasks.length; i++) {
-    const d = tasks[i]?.duration || 0;
+    const d = tasks[i]?.minutes || 0;
     if (clamp < acc + d) {
       return { 
         index: i, 
@@ -25,7 +25,7 @@ export function locateTask(elapsedMinutes, tasks) {
   const last = Math.max(0, tasks.length - 1);
   return { 
     index: last, 
-    inTaskElapsed: tasks[last]?.duration || 0, 
+    inTaskElapsed: tasks[last]?.minutes || 0, 
     clampedElapsed: total, 
     total 
   };
@@ -34,7 +34,7 @@ export function locateTask(elapsedMinutes, tasks) {
 export function jumpToTask(taskIndex, tasks, useDeadline, now, totalMinutes, setStartTime, setDeadlineStr) {
   if (!tasks || tasks.length === 0) return;
   
-  const minsBefore = tasks.slice(0, taskIndex).reduce((s, t) => s + (t?.duration || 0), 0);
+  const minsBefore = tasks.slice(0, taskIndex).reduce((s, t) => s + (t?.minutes || 0), 0);
   
   if (useDeadline) {
     // In deadline mode: adjust deadline so routine ends at correct time

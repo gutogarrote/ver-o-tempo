@@ -4,10 +4,16 @@ import Timeline from '../components/Timeline';
 import AgoraCard from '../components/AgoraCard';
 import { useRoutineState } from '../hooks/useRoutineState';
 
-function Home({ routines, currentTime }) {
+function Home({ routines, currentTime, onEditRoutine, onEditDefaults }) {
   const [routineId, setRoutineId] = useState('manha');
 
   const selectedRoutine = routines?.monday?.[routineId === 'manha' ? 'morning' : 'evening'];
+  
+  const handleEditRoutine = () => {
+    if (selectedRoutine) {
+      onEditRoutine(selectedRoutine);
+    }
+  };
   
   // Always call hooks - pass null if no routine available
   const {
@@ -65,11 +71,16 @@ function Home({ routines, currentTime }) {
   }
 
   const currentTask = selectedRoutine.tasks[currentTaskInfo.index];
-  const inTaskRemaining = currentTask ? currentTask.duration - currentTaskInfo.inTaskElapsed : 0;
+  const inTaskRemaining = currentTask ? currentTask.minutes - currentTaskInfo.inTaskElapsed : 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header routineId={routineId} setRoutineId={setRoutineId} />
+      <Header 
+        routineId={routineId} 
+        setRoutineId={setRoutineId}
+        onEditRoutine={handleEditRoutine}
+        onEditDefaults={onEditDefaults}
+      />
       
       <main className="pb-6">
         <Timeline

@@ -9,7 +9,7 @@ export function useRoutineState(routine, currentTime) {
   const [startTime, setStartTime] = useState(new Date());
   const [isPlaying, setIsPlaying] = useState(true);
 
-  const totalMinutes = routine?.tasks?.reduce((sum, task) => sum + (task?.duration || 0), 0) || 0;
+  const totalMinutes = routine?.tasks?.reduce((sum, task) => sum + (task?.minutes || 0), 0) || 0;
 
   useEffect(() => {
     if (!routine) return;
@@ -46,7 +46,7 @@ export function useRoutineState(routine, currentTime) {
 
   const currentTaskInfo = locateTask(elapsed, routine?.tasks || []);
   const totalPct = totalMinutes > 0 ? Math.min(elapsed / totalMinutes, 1) : 0;
-  const currentPct = currentTaskInfo.inTaskElapsed / (routine?.tasks?.[currentTaskInfo.index]?.duration || 1);
+  const currentPct = currentTaskInfo.inTaskElapsed / (routine?.tasks?.[currentTaskInfo.index]?.minutes || 1);
 
   // Jump to task function
   const handleJumpToTask = (taskIndex) => {

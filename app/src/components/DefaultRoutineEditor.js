@@ -23,7 +23,7 @@ const DefaultRoutineEditor = ({ routines, onSave, onCancel }) => {
     const newTask = { 
       id: newTaskId, 
       name: 'Nova Tarefa', 
-      duration: 10, 
+      minutes: 10, 
       color: '#CCCCCC', 
       icon: '✨' 
     };
@@ -119,7 +119,7 @@ const DefaultRoutineEditor = ({ routines, onSave, onCancel }) => {
       name: newRoutineName,
       endTime: '12:00',
       tasks: [
-        { id: 1, name: 'Primeira Tarefa', duration: 15, color: '#FBBF24', icon: '⭐' }
+        { id: 1, name: 'Primeira Tarefa', minutes: 15, color: '#FBBF24', icon: '⭐' }
       ]
     };
 
@@ -253,8 +253,8 @@ const DefaultRoutineEditor = ({ routines, onSave, onCancel }) => {
                           />
                           <input
                             type="number"
-                            value={task.duration}
-                            onChange={(e) => handleTaskChange(day, period, task.id, 'duration', parseInt(e.target.value, 10))}
+                            value={task.minutes}
+                            onChange={(e) => handleTaskChange(day, period, task.id, 'minutes', parseInt(e.target.value, 10))}
                             className="border p-1 rounded w-16 text-center"
                             min="1"
                           />

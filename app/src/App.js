@@ -61,8 +61,12 @@ function App() {
 
   const handleSaveRoutine = (updatedRoutine) => {
     const updatedRoutines = { ...routines };
-    // This logic needs to be improved to update the correct routine
-    updatedRoutines.monday.morning = updatedRoutine;
+    
+    // Find and update the correct routine based on the routine name
+    const isEvening = updatedRoutine.name === 'Noite';
+    const routineKey = isEvening ? 'evening' : 'morning';
+    
+    updatedRoutines.monday[routineKey] = updatedRoutine;
     setRoutines(updatedRoutines);
     localStorage.setItem('routines', JSON.stringify(updatedRoutines));
     setSelectedRoutine(updatedRoutine);
@@ -82,7 +86,15 @@ function App() {
   const getDisplay = () => {
     // Use new UI if enabled and not in editing modes
     if (useNewUI && !isEditingDefaults && !isEditing) {
-      return <Home routines={routines} currentTime={currentTime} />;
+      return <Home 
+        routines={routines} 
+        currentTime={currentTime}
+        onEditRoutine={(routine) => {
+          setSelectedRoutine(routine);
+          setIsEditing(true);
+        }}
+        onEditDefaults={() => setIsEditingDefaults(true)}
+      />;
     }
     
     // Original UI for editing modes or when new UI is disabled
@@ -99,7 +111,11 @@ function App() {
       );
     }
     if (isEditing && selectedRoutine) {
-      return <RoutineEditor routine={selectedRoutine} onSave={handleSaveRoutine} />;
+      return <RoutineEditor 
+        routine={selectedRoutine} 
+        onSave={handleSaveRoutine} 
+        onCancel={() => setIsEditing(false)}
+      />;
     }
     if (finalEndTime && selectedRoutine) {
       return <Timeline routine={selectedRoutine} endTime={finalEndTime} currentTime={currentTime} />;

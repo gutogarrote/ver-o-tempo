@@ -16,7 +16,7 @@ export function AgoraCard({
 }) {
   if (!current) return null;
 
-  const widthScale = clamp((current?.duration || 5) / 5, 1, 4); // 5→1×, 20→4×
+  const widthScale = clamp((current?.minutes || 5) / 5, 1, 4); // 5→1×, 20→4×
   const barBasePx = 220; // px for 5 min
   const barWidthPx = Math.round(barBasePx * widthScale);
   const barHeightPx = 30; // fixed height

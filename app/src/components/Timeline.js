@@ -59,7 +59,7 @@ export function Timeline({
         <div className="relative w-full overflow-hidden rounded-2xl">
           <div className="flex w-full">
             {tasks.map((t, i) => {
-              const widthPct = ((t?.duration || 0) / totalMinutes) * 100;
+              const widthPct = ((t?.minutes || 0) / totalMinutes) * 100;
               const isCurrent = i === currentIdx;
               return (
                 <button
@@ -67,7 +67,7 @@ export function Timeline({
                   onClick={() => onJump && onJump(i)}
                   className="relative flex-none h-40 md:h-48 focus:outline-none transition active:scale-[0.99] focus-visible:ring-4 focus-visible:ring-offset-2 focus-visible:ring-blue-500 hover:brightness-110"
                   style={{ width: `${widthPct}%`, backgroundColor: t?.color || '#gray' }}
-                  title={`${t?.name || 'Task'} — ${t?.duration || 0} min`}
+                  title={`${t?.name || 'Task'} — ${t?.minutes || 0} min`}
                   aria-label={`Pular para ${t?.name || 'Task'}`}
                 >
                   <div className="absolute inset-0 p-2 md:p-4">
@@ -77,7 +77,7 @@ export function Timeline({
                         <div className="text-[11px] md:text-sm font-semibold leading-tight whitespace-normal break-words px-1">
                           {t?.name || 'Task'}
                         </div>
-                        <div className="text-[10px] md:text-xs opacity-90 mt-1">{t?.duration || 0} min</div>
+                        <div className="text-[10px] md:text-xs opacity-90 mt-1">{t?.minutes || 0} min</div>
                       </div>
                     </div>
                   </div>
