@@ -6,6 +6,7 @@ import { useRoutineState } from '../hooks/useRoutineState';
 
 function Home({ routines, currentTime, onEditRoutine, onEditDefaults }) {
   const [routineId, setRoutineId] = useState('manha');
+  const [isReorderMode, setIsReorderMode] = useState(false);
 
   const selectedRoutine = routines?.monday?.[routineId === 'manha' ? 'morning' : 'evening'];
   
@@ -13,6 +14,17 @@ function Home({ routines, currentTime, onEditRoutine, onEditDefaults }) {
     if (selectedRoutine) {
       onEditRoutine(selectedRoutine);
     }
+  };
+
+  const handleReorderTasks = (reorderedTasks) => {
+    // Update the routine with reordered tasks
+    const updatedRoutine = {
+      ...selectedRoutine,
+      tasks: reorderedTasks
+    };
+    
+    // Call the parent's edit routine handler to save the changes
+    onEditRoutine(updatedRoutine, true); // true flag indicates this is a reorder, not full edit
   };
   
   // Always call hooks - pass null if no routine available
@@ -80,6 +92,8 @@ function Home({ routines, currentTime, onEditRoutine, onEditDefaults }) {
         setRoutineId={setRoutineId}
         onEditRoutine={handleEditRoutine}
         onEditDefaults={onEditDefaults}
+        onToggleReorder={() => setIsReorderMode(!isReorderMode)}
+        isReorderMode={isReorderMode}
       />
       
       <main className="pb-6">
@@ -89,12 +103,14 @@ function Home({ routines, currentTime, onEditRoutine, onEditDefaults }) {
           currentIdx={currentTaskInfo.index}
           totalPct={totalPct}
           onJump={handleJumpToTask}
+          onReorderTasks={handleReorderTasks}
           deadlineStr={deadlineStr}
           setDeadlineStr={setDeadlineStr}
           useDeadline={useDeadline}
           setUseDeadline={setUseDeadline}
           startTime={startTime}
           endsAt={endsAt}
+          isEditMode={isReorderMode}
         />
 
         <AgoraCard

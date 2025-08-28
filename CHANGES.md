@@ -1,5 +1,73 @@
 # Alterações Realizadas - Ver o Tempo
 
+---
+
+## Version 2.0.0 - Mobile Optimization & Drag-and-Drop Features (2025-08-28)
+
+### 🎯 **Major New Features**
+
+#### **Drag and Drop Task Reordering**
+- Added complete drag-and-drop functionality using @dnd-kit library
+- Users can now reorder tasks by dragging them with visible grip handles
+- **"Reordenar" button** in header toggles drag mode on/off
+- Visual feedback with opacity changes and rotation during drag
+- Works on both desktop (mouse) and mobile (touch) devices
+- Automatic saving of new task order to localStorage and routines data
+
+#### **Mobile-First Responsive Design**
+- **Icon-only mode** for mobile: Task names hidden on small screens to prevent squishing
+- **Larger touch targets**: Minimum 44px height for all interactive elements
+- **Scrollable legend**: Horizontal scrolling on mobile instead of text wrapping
+- **Stacked mobile layout**: Header controls stack vertically on mobile
+- **44px minimum touch targets** meeting accessibility standards
+
+### 🎨 **UI/UX Improvements**
+
+#### **Enhanced Mobile Interface**
+- Mobile-optimized header with stacked buttons
+- Better spacing and padding for finger navigation
+- Larger icons and improved readability on small screens
+- Smooth scrolling with hidden scrollbars
+- Touch-optimized animations and interactions
+
+#### **Visual Design Updates**
+- **Edit mode styling**: Dashed border and gradient background when reordering
+- **Drag handles**: Semi-transparent grip icons with hover effects
+- **Better focus indicators**: Enhanced visibility for keyboard navigation
+- **Improved current task indicator**: Animated pulse with better contrast
+
+### ⚡ **Performance & Technical**
+
+#### **New Dependencies**
+- `@dnd-kit/core`: Modern drag-and-drop engine
+- `@dnd-kit/sortable`: Horizontal sorting functionality
+- `@dnd-kit/utilities`: Helper utilities for transforms
+
+#### **CSS Improvements**
+- **Responsive font sizing** using clamp() for better scaling
+- **Touch-optimized interactions** with `touch-manipulation`
+- **iOS zoom prevention** on form inputs
+- **Mobile viewport handling** with dynamic viewport height
+- **Smooth animations** with reduced motion support
+
+### 📱 **How to Use New Features**
+
+#### **Task Reordering**
+1. Click the **"↔️ Reordenar"** button in the header
+2. Drag tasks by their grip handles (visible dots in top-left corner)
+3. Drop tasks in desired position
+4. Click **"✅ Salvar"** to save changes or **"❌ Cancelar"** to discard
+
+#### **Mobile Navigation**
+- Swipe horizontally to scroll through task legend
+- All buttons are now large enough for comfortable tapping
+- Timeline shows only icons on mobile - tap any task to jump to it
+- Use reorder mode to rearrange tasks with drag gestures
+
+---
+
+## Previous Version - Data Structure Fixes & Edit Button Integration
+
 ## Resumo
 Foram realizadas correções críticas na estrutura de dados e reintegração dos botões de edição na nova interface do usuário.
 

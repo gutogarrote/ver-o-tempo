@@ -1,5 +1,4 @@
 import React from 'react';
-import { clamp } from '../lib/timeline';
 import { formatTime } from '../lib/time';
 
 export function AgoraCard({ 
@@ -16,35 +15,32 @@ export function AgoraCard({
 }) {
   if (!current) return null;
 
-  const widthScale = clamp((current?.minutes || 5) / 5, 1, 4); // 5→1×, 20→4×
-  const barBasePx = 220; // px for 5 min
-  const barWidthPx = Math.round(barBasePx * widthScale);
-  const barHeightPx = 30; // fixed height
+  // Removed unused variables for mobile-responsive design
 
   return (
     <section className="mt-6 px-4">
       <div className="mx-auto max-w-3xl rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex items-center gap-4">
           <div 
-            className="size-16 md:size-20 rounded-2xl flex items-center justify-center text-3xl md:text-4xl"
+            className="size-20 md:size-24 rounded-2xl flex items-center justify-center text-4xl md:text-5xl flex-shrink-0"
             style={{ backgroundColor: (current?.color || '#gray') + "22" }}
           >
             <span>{current?.icon || '⭕'}</span>
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="text-slate-500 text-xs uppercase tracking-wide">Agora</div>
-            <h2 className="text-2xl md:text-3xl font-bold leading-tight text-gray-800">{current?.name || 'Task'}</h2>
-            <div className="mt-1 text-sm text-slate-600">
-              Faltam <span className="font-semibold">{Math.ceil(inTaskRemaining)} min</span> desta tarefa
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold leading-tight text-gray-800 break-words">{current?.name || 'Task'}</h2>
+            <div className="mt-1 text-base md:text-sm text-slate-600">
+              Faltam <span className="font-semibold text-lg md:text-base">{Math.ceil(inTaskRemaining)} min</span> desta tarefa
             </div>
           </div>
         </div>
 
         <div className="mt-4">
-          <div className="mx-auto" style={{ width: barWidthPx + "px", maxWidth: "100%" }}>
+          <div className="mx-auto" style={{ maxWidth: "100%" }}>
             <div 
               className="w-full rounded-full bg-slate-100 overflow-hidden" 
-              style={{ height: `${barHeightPx}px` }}
+              style={{ height: "40px" }}
             >
               <div 
                 className="h-full rounded-full transition-all duration-1000" 
@@ -55,36 +51,41 @@ export function AgoraCard({
               />
             </div>
           </div>
-          <div className="mt-2 flex justify-between text-xs text-slate-500">
-            <span>Agora: {formatTime(currentTime)}</span>
-            <span>Rotina termina: {formatTime(endsAt)}</span>
+          <div className="mt-3 flex flex-col sm:flex-row sm:justify-between gap-2 text-sm sm:text-xs text-slate-500">
+            <span>Agora: <span className="font-medium">{formatTime(currentTime)}</span></span>
+            <span>Rotina termina: <span className="font-medium">{formatTime(endsAt)}</span></span>
           </div>
         </div>
 
         {/* Control buttons */}
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <button 
-            onClick={() => setIsPlaying(!isPlaying)} 
-            className="rounded-full px-4 py-2 text-sm font-semibold shadow bg-slate-900 text-white hover:bg-slate-800 transition"
-          >
-            {isPlaying ? "Pausar" : "Retomar"}
-          </button>
-          <button 
-            onClick={startNow} 
-            className="rounded-full px-4 py-2 text-sm font-semibold bg-white border border-slate-200 hover:bg-slate-50 transition"
-          >
-            Começar agora
-          </button>
-          {startAtDefault && (
+        <div className="mt-5 space-y-3">
+          {/* Mobile: Stack buttons vertically */}
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-2">
             <button 
-              onClick={startAtDefault} 
-              className="rounded-full px-4 py-2 text-sm font-semibold bg-white border border-slate-200 hover:bg-slate-50 transition"
+              onClick={() => setIsPlaying(!isPlaying)} 
+              className="min-h-[44px] flex-1 sm:flex-none rounded-lg px-6 py-3 text-base sm:text-sm font-semibold shadow bg-slate-900 text-white hover:bg-slate-800 transition touch-manipulation"
             >
-              Começar no horário
+              {isPlaying ? "⏸️ Pausar" : "▶️ Retomar"}
             </button>
-          )}
-          <div className="ml-auto text-sm text-slate-600">
-            Progresso total: <span className="font-semibold">{Math.round(totalPct * 100)}%</span>
+            <button 
+              onClick={startNow} 
+              className="min-h-[44px] flex-1 sm:flex-none rounded-lg px-6 py-3 text-base sm:text-sm font-semibold bg-white border border-slate-200 hover:bg-slate-50 transition touch-manipulation"
+            >
+              🕐 Começar agora
+            </button>
+            {startAtDefault && (
+              <button 
+                onClick={startAtDefault} 
+                className="min-h-[44px] flex-1 sm:flex-none rounded-lg px-6 py-3 text-base sm:text-sm font-semibold bg-white border border-slate-200 hover:bg-slate-50 transition touch-manipulation"
+              >
+                📅 Começar no horário
+              </button>
+            )}
+          </div>
+          
+          {/* Progress indicator */}
+          <div className="text-center sm:text-right text-base sm:text-sm text-slate-600">
+            Progresso total: <span className="font-semibold text-lg sm:text-base">{Math.round(totalPct * 100)}%</span>
           </div>
         </div>
       </div>

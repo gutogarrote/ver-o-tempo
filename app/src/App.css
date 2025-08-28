@@ -1,0 +1,118 @@
+/* Global responsive font and spacing improvements for mobile */
+
+/* Ensure smooth touch scrolling on mobile */
+* {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Better touch targets and interactions */
+button, input, select, textarea {
+  touch-action: manipulation;
+}
+
+/* Prevent iOS zoom on inputs */
+input[type="time"] {
+  font-size: max(16px, 1rem);
+}
+
+/* Improve mobile scrollable areas */
+.overflow-x-auto {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.overflow-x-auto::-webkit-scrollbar {
+  display: none;
+}
+
+/* Better focus visibility on mobile */
+@media (max-width: 768px) {
+  *:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+  }
+}
+
+/* Responsive text sizing using clamp() */
+.responsive-text-sm {
+  font-size: clamp(0.875rem, 2.5vw, 1rem);
+}
+
+.responsive-text-base {
+  font-size: clamp(1rem, 3vw, 1.125rem);
+}
+
+.responsive-text-lg {
+  font-size: clamp(1.125rem, 3.5vw, 1.25rem);
+}
+
+.responsive-text-xl {
+  font-size: clamp(1.25rem, 4vw, 1.5rem);
+}
+
+.responsive-text-2xl {
+  font-size: clamp(1.5rem, 5vw, 2rem);
+}
+
+.responsive-text-3xl {
+  font-size: clamp(1.875rem, 6vw, 2.5rem);
+}
+
+/* Mobile-optimized animations */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Better mobile viewport handling */
+@media (max-width: 640px) {
+  .min-h-screen {
+    min-height: 100vh;
+    min-height: 100dvh; /* Dynamic viewport height for mobile */
+  }
+}
+
+/* Drag and Drop Visual Feedback */
+.sortable-item {
+  transition: transform 0.2s ease-in-out, opacity 0.2s ease-in-out;
+}
+
+.sortable-item.dragging {
+  opacity: 0.6;
+  transform: rotate(3deg);
+  z-index: 1000;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.sortable-item:not(.dragging) {
+  transition: transform 0.3s ease-out;
+}
+
+/* Drag handle styling */
+.drag-handle {
+  cursor: grab;
+  opacity: 0.7;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.drag-handle:hover {
+  opacity: 1;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Edit mode visual feedback */
+.timeline-edit-mode {
+  background: linear-gradient(45deg, #f8fafc, #f1f5f9);
+  border: 2px dashed #94a3b8;
+}
+
+.timeline-edit-mode .timeline-task {
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+}

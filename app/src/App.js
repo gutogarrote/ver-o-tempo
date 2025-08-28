@@ -89,9 +89,15 @@ function App() {
       return <Home 
         routines={routines} 
         currentTime={currentTime}
-        onEditRoutine={(routine) => {
-          setSelectedRoutine(routine);
-          setIsEditing(true);
+        onEditRoutine={(routine, isReorder = false) => {
+          if (isReorder) {
+            // Handle reordering - save directly without entering edit mode
+            handleSaveRoutine(routine);
+          } else {
+            // Handle regular edit - enter edit mode
+            setSelectedRoutine(routine);
+            setIsEditing(true);
+          }
         }}
         onEditDefaults={() => setIsEditingDefaults(true)}
       />;
