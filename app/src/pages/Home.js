@@ -1,10 +1,26 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import Header from '../components/Header';
-import TimelineNew from '../components/TimelineNew';
-import AgoraCard from '../components/AgoraCard';
+import RoutineTV from '../components/fita/RoutineTV';
+import RoutinePhone from '../components/fita/RoutinePhone';
+import ParentMenu from '../components/fita/ParentMenu';
 import DefaultRoutineEditor from '../components/DefaultRoutineEditor';
 import RoutineEditor from '../components/RoutineEditor';
-import { computeElapsed, locateTask, sumMinutes, toToday } from '../lib/timeline';
+import { computeElapsed, hhmm, sumMinutes, toToday } from '../lib/timeline';
+import { DEFAULT_BUFFER_MIN, buildRoutineView, closingFor } from '../lib/routineView';
+
+// Phones and portrait screens get the vertical ribbon (2a); landscape gets the TV stage (1a).
+const PHONE_QUERY = '(max-width: 767px), (max-aspect-ratio: 1/1)';
+
+function useIsPhone() {
+  const [isPhone, setIsPhone] = useState(() => window.matchMedia?.(PHONE_QUERY).matches ?? false);
+  useEffect(() => {
+    const mq = window.matchMedia?.(PHONE_QUERY);
+    if (!mq) return;
+    const onChange = () => setIsPhone(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return isPhone;
+}
 
 export default function Home({ routines, setRoutines, currentTime }) {
   // Map routines to morning/evening for today (using 'monday' as in current data)
@@ -41,12 +57,17 @@ export default function Home({ routines, setRoutines, currentTime }) {
     [mode, startTime, deadlineStr, now, totalMinutes]
   );
 
-  const { index: currentIdx, inTaskElapsed, clampedElapsed } = useMemo(() => locateTask(elapsed, tasks), [elapsed, tasks]);
-  const current = tasks[currentIdx] || { name: '-', minutes: 1, color: '#999', icon: '⏱️' };
-  const currentMinutes = current.minutes ?? 1;
-  const currentPct = Math.min(1, Math.max(0, inTaskElapsed / currentMinutes));
-  const totalPct = Math.min(1, Math.max(0, clampedElapsed / Math.max(1, totalMinutes)));
-  const inTaskRemaining = Math.max(0, Math.round(currentMinutes - inTaskElapsed));
+  const startsAt = new Date(endsAt.getTime() - totalMinutes * 60000);
+  const closing = closingFor(routineId, routine);
+  const bufferMin = routine.bufferMinutes ?? DEFAULT_BUFFER_MIN;
+  const view = buildRoutineView({
+    tasks,
+    elapsed,
+    startMin: startsAt.getHours() * 60 + startsAt.getMinutes() + startsAt.getSeconds() / 60,
+    closing,
+  });
+
+  const isPhone = useIsPhone();
 
   // Edit states
   const [isEditingDefaults, setIsEditingDefaults] = useState(false);
@@ -89,77 +110,60 @@ export default function Home({ routines, setRoutines, currentTime }) {
     setIsEditingCurrent(false);
   }
 
-  return (
-    <div className="min-h-screen w-full bg-gradient-to-b from-white to-slate-50 text-slate-800">
-      <div className="mx-auto max-w-6xl px-4 pt-6">
-        <Header routineId={routineId} setRoutineId={setRoutineId} />
-        {/* Edit toolbar */}
-        <div className="mt-4 flex justify-end gap-2">
-          <button
-            className="px-3 py-2 text-sm rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-800"
-            onClick={() => setIsEditingCurrent(true)}
-          >
-            ✏️ Editar
-          </button>
-          <button
-            className="px-3 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white"
-            onClick={() => setIsEditingDefaults(true)}
-          >
-            ⚙️ Rotinas
-          </button>
+  if (isEditingDefaults) {
+    return (
+      <div className="mx-auto max-w-6xl px-4 py-6">
+        <DefaultRoutineEditor
+          routines={routines}
+          onSave={saveDefaults}
+          onCancel={() => setIsEditingDefaults(false)}
+        />
+      </div>
+    );
+  }
+
+  if (isEditingCurrent) {
+    return (
+      <div className="mx-auto max-w-6xl px-4 py-6">
+        <div className="bg-white p-4 rounded-lg shadow-md">
+          <RoutineEditor routine={routine} onSave={saveCurrent} />
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={() => setIsEditingCurrent(false)}
+              className="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
+            >
+              Cancelar
+            </button>
+          </div>
         </div>
       </div>
+    );
+  }
 
-      {/* Editors overlay sections */}
-      {isEditingDefaults ? (
-        <div className="mx-auto max-w-6xl px-4 py-6">
-          <DefaultRoutineEditor
-            routines={routines}
-            onSave={saveDefaults}
-            onCancel={() => setIsEditingDefaults(false)}
-          />
-        </div>
-      ) : isEditingCurrent ? (
-        <div className="mx-auto max-w-6xl px-4 py-6">
-          <div className="bg-white p-4 rounded-lg shadow-md">
-            <RoutineEditor routine={routine} onSave={saveCurrent} />
-            <div className="mt-4 flex justify-end">
-              <button
-                onClick={() => setIsEditingCurrent(false)}
-                className="px-4 py-2 rounded bg-gray-500 text-white hover:bg-gray-600"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <>
-          <TimelineNew
-            tasks={tasks}
-            totalMinutes={totalMinutes}
-            currentIdx={currentIdx}
-            totalPct={totalPct}
-            onJump={onJump}
-            deadlineStr={deadlineStr}
-            setDeadlineStr={setDeadlineStr}
-            useDeadline={useDeadline}
-            setUseDeadline={setUseDeadline}
-            startTime={startTime}
-            endsAt={endsAt}
-          />
-
-          <div className="mx-auto max-w-6xl px-4 py-6">
-            <AgoraCard
-              current={current}
-              currentPct={currentPct}
-              endsAt={endsAt}
-              inTaskRemaining={inTaskRemaining}
-              now={now}
-            />
-          </div>
-        </>
-      )}
-    </div>
+  const badge = (dims) => (
+    <ParentMenu
+      {...dims}
+      onEdit={() => setIsEditingCurrent(true)}
+      onEditDefaults={() => setIsEditingDefaults(true)}
+      deadlineStr={deadlineStr}
+      setDeadlineStr={setDeadlineStr}
+      useDeadline={useDeadline}
+      setUseDeadline={setUseDeadline}
+    />
   );
+
+  const shared = {
+    v: view,
+    closing,
+    clock: hhmm(now),
+    isMorning: routineId !== 'evening',
+    onPick: setRoutineId,
+    onJump,
+    onReset: () => onJump(0),
+    badge,
+  };
+
+  return isPhone
+    ? <RoutinePhone {...shared} />
+    : <RoutineTV {...shared} bufferMin={bufferMin} startLabel={hhmm(startsAt)} endLabel={hhmm(endsAt)} />;
 }

@@ -59,7 +59,7 @@ function App() {
   }, []);
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="min-h-screen" style={{ background: "#FFF6E9" }}>
       {routines ? (
         <Home routines={routines} setRoutines={setRoutines} currentTime={currentTime} />
       ) : (
