@@ -9,6 +9,7 @@ import { DEFAULT_BUFFER_MIN, buildRoutineView, closingFor } from '../lib/routine
 
 // Phones and portrait screens get the vertical ribbon (2a); landscape gets the TV stage (1a).
 const PHONE_QUERY = '(max-width: 767px), (max-aspect-ratio: 1/1)';
+const EMPTY_TASKS = [];
 
 function useIsPhone() {
   const [isPhone, setIsPhone] = useState(() => window.matchMedia?.(PHONE_QUERY).matches ?? false);
@@ -30,7 +31,7 @@ export default function Home({ routines, setRoutines, currentTime }) {
   const [routineId, setRoutineId] = useState('morning');
   const routine = available[routineId] || { name: 'Rotina', tasks: [] };
 
-  const tasks = routine.tasks || [];
+  const tasks = routine.tasks || EMPTY_TASKS;
   const totalMinutes = useMemo(() => sumMinutes(tasks), [tasks]);
 
   // Modes: start | deadline
@@ -49,13 +50,9 @@ export default function Home({ routines, setRoutines, currentTime }) {
   }, [routineId, routine.endTime, totalMinutes]);
 
   const mode = useDeadline ? 'deadline' : 'start';
-  const deadline = toToday(deadlineStr);
   const now = currentTime instanceof Date ? currentTime : new Date();
 
-  const { elapsed, endsAt } = useMemo(() =>
-    computeElapsed({ mode, startTime, deadline, now, totalMinutes }),
-    [mode, startTime, deadlineStr, now, totalMinutes]
-  );
+  const { elapsed, endsAt } = computeElapsed({ mode, startTime, deadline: toToday(deadlineStr), now, totalMinutes });
 
   const startsAt = new Date(endsAt.getTime() - totalMinutes * 60000);
   const closing = closingFor(routineId, routine);
