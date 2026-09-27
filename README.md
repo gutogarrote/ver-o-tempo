@@ -90,26 +90,43 @@ As mudanças ficam guardadas **no próprio aparelho**, no navegador.
 
 ## 💻 Como instalar
 
-Por enquanto o app roda **a partir de um computador da casa**. Você instala uma vez e depois abre na TV, no tablet ou no celular pela rede Wi-Fi. Não é preciso saber programar: basta seguir os passos.
+Por enquanto o app roda **a partir de um computador da casa**. Você instala uma vez e depois abre na TV, no tablet ou no celular pela rede Wi-Fi.
 
-### 1. Instale o Node.js (só na primeira vez)
+### PELO TERMINAL
+
+Para quem já tem [Git](https://git-scm.com/) e [Node.js](https://nodejs.org/) (versão LTS) instalados:
+
+```bash
+git clone https://github.com/camerafilme/ninarotina.git
+cd ninarotina/app
+npm install
+npm start
+```
+
+O app abre em **http://localhost:3000**. Para usar na TV ou no celular (na mesma rede Wi-Fi), use o endereço **On Your Network** que o `npm start` mostra, por exemplo `http://192.168.0.15:3000`.
+
+### OU ENTÃO
+
+Não é preciso saber programar: basta seguir os passos.
+
+#### 1. Instale o Node.js (só na primeira vez)
 O Node.js é um programa gratuito que faz o app funcionar.
 
 1. Entre em **[nodejs.org](https://nodejs.org/)**.
 2. Baixe a versão marcada como **LTS** e instale como qualquer outro programa (pode ir clicando em "Avançar"/"Continuar").
 
-### 2. Baixe o app
+#### 2. Baixe o app
 1. No topo desta página, clique no botão verde **`<> Code`** e depois em **Download ZIP**.
 2. Descompacte o arquivo baixado numa pasta fácil de achar, como **Documentos**.
 3. Dentro dela haverá uma pasta chamada **`app`**. É essa que importa.
 
-### 3. Abra o "terminal" dentro da pasta `app`
+#### 3. Abra o "terminal" dentro da pasta `app`
 O terminal é uma janela onde se digitam comandos. Não se assuste: são só dois.
 
 - **Windows:** abra a pasta `app` no Explorador de Arquivos, clique na barra de endereço lá em cima, apague o que estiver escrito, digite `cmd` e aperte **Enter**.
 - **Mac:** abra o app **Terminal**, digite `cd` seguido de um espaço, **arraste a pasta `app`** para dentro da janela e aperte **Enter**.
 
-### 4. Instale e ligue o app
+#### 4. Instale e ligue o app
 No terminal, digite o comando abaixo e aperte **Enter**. Ele baixa o que o app precisa e só é necessário na primeira vez; pode levar alguns minutos.
 
 ```
@@ -126,7 +143,7 @@ O navegador vai abrir sozinho com o app. 🎉 (Se não abrir, entre em **http://
 
 > Se o Windows perguntar se o Node.js pode usar a rede, clique em **Permitir**. Isso é o que deixa a TV e o celular abrirem o app.
 
-### 5. Abra na TV, no tablet ou no celular
+#### 5. Abra na TV, no tablet ou no celular
 Depois do `npm start`, o terminal mostra algo assim:
 
 ```
@@ -136,7 +153,7 @@ Depois do `npm start`, o terminal mostra algo assim:
 
 Com o aparelho **na mesma rede Wi-Fi** do computador, abra o navegador dele e digite o endereço da linha **On Your Network** (o número será diferente na sua casa). Numa smart TV, use o navegador da própria TV.
 
-### Das próximas vezes
+#### Das próximas vezes
 Basta abrir o terminal na pasta `app` (passo 3) e digitar `npm start`. O computador precisa ficar ligado, com a janela do terminal aberta, enquanto vocês usam o app. Para desligar, feche a janela do terminal (ou aperte **Ctrl + C** nela).
 
 ---
