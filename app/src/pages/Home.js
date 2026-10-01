@@ -4,8 +4,9 @@ import RoutinePhone from '../components/fita/RoutinePhone';
 import ParentMenu from '../components/fita/ParentMenu';
 import DefaultRoutineEditor from '../components/DefaultRoutineEditor';
 import RoutineEditor from '../components/RoutineEditor';
-import { computeElapsed, hhmm, sumMinutes, toToday } from '../lib/timeline';
-import { DEFAULT_BUFFER_MIN, buildRoutineView, closingFor } from '../lib/routineView';
+import { OVERTIME_WINDOW_MIN, computeElapsed, hhmm, sumMinutes, toToday } from '../lib/timeline';
+import { DEFAULT_BUFFER_MIN, buildPlanView, closingFor } from '../lib/routineView';
+import { MIN_MS, defaultPlan, extendDeadline, jumpTo, toggleTaskDone } from '../lib/schedule';
 
 // Phones and portrait screens get the vertical ribbon (2a); landscape gets the TV stage (1a).
 const PHONE_QUERY = '(max-width: 767px), (max-aspect-ratio: 1/1)';
@@ -38,9 +39,13 @@ export default function Home({ routines, setRoutines, currentTime }) {
   const [useDeadline, setUseDeadline] = useState(true);
   const [deadlineStr, setDeadlineStr] = useState(routine.endTime || '23:59');
   const [startTime, setStartTime] = useState(() => new Date(currentTime));
+  // Adjusted schedule of the current run (done marks, early finishes, +5 min, jumps).
+  // In memory only, like the deadline itself; null = plain schedule from the deadline.
+  const [session, setSession] = useState(null);
 
   // Reset when routine changes
   useEffect(() => {
+    setSession(null);
     setUseDeadline(true);
     setDeadlineStr(routine.endTime || '23:59');
     // Default start time aligns with deadline - total
@@ -52,17 +57,18 @@ export default function Home({ routines, setRoutines, currentTime }) {
   const mode = useDeadline ? 'deadline' : 'start';
   const now = currentTime instanceof Date ? currentTime : new Date();
 
-  const { elapsed, endsAt } = computeElapsed({ mode, startTime, deadline: toToday(deadlineStr), now, totalMinutes });
+  const { endsAt } = computeElapsed({ mode, startTime, deadline: toToday(deadlineStr), now, totalMinutes });
+  const nowMs = now.getTime();
 
-  const startsAt = new Date(endsAt.getTime() - totalMinutes * 60000);
+  // A session only applies to the routine/tasks it was made for, and expires like the
+  // deadline does (after the overtime window) so the next day starts clean.
+  const sessionLive = session && session.routineId === routineId && session.tasks === tasks
+    && nowMs - session.plan.endMs <= OVERTIME_WINDOW_MIN * MIN_MS;
+  const plan = sessionLive ? session.plan : defaultPlan(tasks, endsAt.getTime());
+
   const closing = closingFor(routineId, routine);
   const bufferMin = routine.bufferMinutes ?? DEFAULT_BUFFER_MIN;
-  const view = buildRoutineView({
-    tasks,
-    elapsed,
-    startMin: startsAt.getHours() * 60 + startsAt.getMinutes() + startsAt.getSeconds() / 60,
-    closing,
-  });
+  const view = buildPlanView({ tasks, plan, nowMs, closing, label: (ms) => hhmm(new Date(ms)) });
 
   const isPhone = useIsPhone();
 
@@ -70,19 +76,20 @@ export default function Home({ routines, setRoutines, currentTime }) {
   const [isEditingDefaults, setIsEditingDefaults] = useState(false);
   const [isEditingCurrent, setIsEditingCurrent] = useState(false);
 
-  function onJump(i) {
-    const minsBefore = tasks.slice(0, i).reduce((s, t) => s + (t.minutes ?? 0), 0);
-    if (useDeadline) {
-      const remaining = totalMinutes - minsBefore;
-      const newDeadline = new Date(now.getTime() + remaining * 60000);
-      const hh = String(newDeadline.getHours()).padStart(2, '0');
-      const mm = String(newDeadline.getMinutes()).padStart(2, '0');
-      setDeadlineStr(`${hh}:${mm}`);
-    } else {
-      const newStart = new Date(now.getTime() - minsBefore * 60000);
-      setStartTime(newStart);
-    }
+  function applyPlan(next) {
+    if (next === plan) return;
+    setSession({ routineId, tasks, plan: next });
+    // Keep the parents' menu showing the deadline in effect.
+    if (useDeadline && next.endMs !== plan.endMs) setDeadlineStr(hhmm(new Date(next.endMs)));
   }
+
+  const onJump = (i) => applyPlan(jumpTo(plan, tasks, i, nowMs, { keepDeadline: useDeadline }));
+  const onToggleDone = (i) => applyPlan(toggleTaskDone(plan, tasks, i, nowMs, { keepDeadline: useDeadline }));
+  const onExtend = () => applyPlan(extendDeadline(plan, tasks, nowMs));
+
+  // Parents changing the deadline/mode by hand start from a clean schedule.
+  const setDeadlineByHand = (v) => { setSession(null); setDeadlineStr(v); };
+  const setUseDeadlineByHand = (v) => { setSession(null); setUseDeadline(v); };
 
   function saveDefaults(updated) {
     try {
@@ -143,9 +150,9 @@ export default function Home({ routines, setRoutines, currentTime }) {
       onEdit={() => setIsEditingCurrent(true)}
       onEditDefaults={() => setIsEditingDefaults(true)}
       deadlineStr={deadlineStr}
-      setDeadlineStr={setDeadlineStr}
+      setDeadlineStr={setDeadlineByHand}
       useDeadline={useDeadline}
-      setUseDeadline={setUseDeadline}
+      setUseDeadline={setUseDeadlineByHand}
     />
   );
 
@@ -156,11 +163,13 @@ export default function Home({ routines, setRoutines, currentTime }) {
     isMorning: routineId !== 'evening',
     onPick: setRoutineId,
     onJump,
+    onToggleDone,
+    onExtend,
     onReset: () => onJump(0),
     badge,
   };
 
   return isPhone
     ? <RoutinePhone {...shared} />
-    : <RoutineTV {...shared} bufferMin={bufferMin} startLabel={hhmm(startsAt)} endLabel={hhmm(endsAt)} />;
+    : <RoutineTV {...shared} bufferMin={bufferMin} startLabel={hhmm(new Date(view.startMs))} endLabel={hhmm(new Date(view.endMs))} />;
 }

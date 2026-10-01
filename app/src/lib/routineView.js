@@ -1,5 +1,6 @@
 // View model for the "Fita" timeline (TV 1a / phone 2a).
-// Pure: give it tasks + elapsed minutes, get back everything the UI renders.
+// Pure: give it tasks + elapsed minutes (or a session plan), get back everything the UI renders.
+import { MIN_MS, defaultPlan } from './schedule';
 
 export const DEFAULT_BUFFER_MIN = 25;
 
@@ -32,54 +33,90 @@ export function mmss(v) {
   return Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0');
 }
 
-const minutesOf = (t) => t.minutes ?? t.duration ?? 0;
+const minutesOf = (t) => {
+  const m = Number(t.minutes ?? t.duration ?? 0);
+  return Number.isFinite(m) && m > 0 ? m : 0;
+};
 
 // startMin: routine start as minutes since midnight (for "às hh:mm" labels).
+// Plain back-to-back schedule; kept for callers/tests that think in elapsed minutes.
 export function buildRoutineView({ tasks, elapsed, startMin, closing }) {
   const total = tasks.reduce((s, t) => s + minutesOf(t), 0);
-  const e = Math.max(0, elapsed);
-  const overtime = tasks.length > 0 && e >= total;
-  const over = e - total;
+  const plan = defaultPlan(tasks, (startMin + total) * MIN_MS);
+  return buildPlanView({
+    tasks, plan, closing,
+    nowMs: (startMin + Math.max(0, elapsed)) * MIN_MS,
+    label: (ms) => hhmmFromMinutes(ms / MIN_MS),
+  });
+}
+
+// View for a session plan (see lib/schedule). Block sizes stay proportional to the
+// ORIGINAL minutes (layout never jumps); times, countdowns and progress follow the plan.
+// label(ms) formats a plan timestamp as "hh:mm".
+export function buildPlanView({ tasks, plan, nowMs, closing, label }) {
+  const total = tasks.reduce((s, t) => s + minutesOf(t), 0);
+  const n = tasks.length;
+  const t = n ? Math.max(nowMs, plan.segs[0].start) : nowMs;
+  const overtime = n > 0 && nowMs >= plan.endMs;
+  const over = (nowMs - plan.endMs) / MIN_MS;
 
   let acc = 0;
-  let curIdx = 0;
-  const blocks = tasks.map((t, i) => {
-    const minutes = minutesOf(t);
+  let curIdx = -1;
+  const blocks = tasks.map((task, i) => {
+    const minutes = minutesOf(task);
     const start = acc;
     acc += minutes;
-    const state = e >= acc ? 'done' : e >= start ? 'current' : 'future';
-    if (state === 'current') curIdx = i;
-    return { ...t, minutes, start, state, done: state === 'done', isCurrent: state === 'current' };
+    const seg = plan.segs[i];
+    const done = overtime || !!plan.done[i] || t >= seg.end;
+    const isCurrent = !done && curIdx < 0;
+    if (isCurrent) curIdx = i;
+    const planMinutes = (seg.end - seg.start) / MIN_MS;
+    return {
+      ...task, minutes, start, done, isCurrent,
+      state: done ? 'done' : isCurrent ? 'current' : 'future',
+      startMs: seg.start, endMs: seg.end, planMinutes,
+      shownMinutes: done ? minutes : Math.round(planMinutes),
+    };
   });
-  if (overtime) curIdx = Math.max(0, tasks.length - 1);
+  // Everything finished before the deadline: free time until the closing.
+  const allDone = n > 0 && !overtime && curIdx < 0;
+  const task = blocks[curIdx];
 
-  const task = blocks[curIdx] || { name: '-', icon: '⏱️', color: '#999999', start: 0, minutes: 1 };
-  const current = overtime
-    ? { name: closing.name, icon: closing.icon, color: closing.color, start: total }
+  const current = overtime || allDone || !task
+    ? (n ? { name: closing.name, icon: closing.icon, color: closing.color, start: total } : { name: '-', icon: '⏱️', color: '#999999', start: 0, minutes: 1 })
     : task;
-  const remaining = overtime ? over : task.start + task.minutes - e;
-  const urgent = !overtime && remaining <= 2;
-  const currentPct = overtime ? 100 : ((e - task.start) / Math.max(task.minutes, 0.001)) * 100;
+  const remaining = overtime ? over : task ? (task.endMs - t) / MIN_MS : Math.max(0, (plan.endMs - t) / MIN_MS);
+  const urgent = !!task && remaining <= 2;
+  const frac = task ? Math.min(1, Math.max(0, (t - task.startMs) / Math.max(task.endMs - task.startMs, 1))) : 1;
+  const currentPct = frac * 100;
 
-  const nextUp = overtime ? [] : blocks.slice(curIdx + 1, curIdx + 3).map((t) => ({
-    ...t, at: hhmmFromMinutes(startMin + t.start),
-  }));
+  const nextUp = overtime ? [] : allDone
+    ? [{ id: 'closing', name: closing.name, icon: closing.icon, color: closing.color, at: label(plan.endMs), shownMinutes: Math.max(0, Math.ceil((plan.endMs - t) / MIN_MS)) }]
+    : blocks.slice(curIdx + 1).filter((b) => !b.done).slice(0, 2).map((b) => ({ ...b, at: label(b.startMs) }));
+
+  const nowFrac = !total ? 0 : task ? (task.start + frac * task.minutes) / total : 1;
 
   return {
-    total, overtime, over, urgent, blocks, current, currentPct, nextUp,
+    total, overtime, over, urgent, allDone, blocks, current, currentPct, nextUp,
     // Now position along the task track, 0..1 (buffer excluded)
-    nowFrac: total ? Math.min(e / total, 1) : 0,
-    elapsedOnTrack: Math.min(e, total),
+    nowFrac,
+    elapsedOnTrack: nowFrac * total,
+    startMs: n ? plan.segs[0].start : plan.endMs,
+    endMs: plan.endMs,
     countdown: overtime ? '+' + mmss(over) : mmss(remaining),
     countLabel: overtime ? 'DEPOIS DA HORA' : 'RESTANTES',
     leftLabel: overtime
       ? `JÁ PASSOU ${Math.ceil(over)} MIN DO HORÁRIO`
-      : `FALTAM ${Math.ceil(total - e)} MIN PARA ACABAR`,
+      : `FALTAM ${Math.ceil(Math.max(0, plan.endMs - t) / MIN_MS)} MIN PARA ACABAR`,
     statusText: overtime
       ? '🚦 Devíamos estar nessa etapa agora'
+      : allDone
+      ? '🎉 Tudo feito!'
       : urgent
       ? '⏰ Quase acabando — corre!'
-      : `Termina às ${hhmmFromMinutes(startMin + task.start + task.minutes)}`,
+      : task
+      ? `Termina às ${label(task.endMs)}`
+      : '',
     nextHeading: overtime ? 'FECHANDO O DIA' : 'A SEGUIR',
     closeSub: overtime ? 'estamos aqui' : closing.sub,
   };

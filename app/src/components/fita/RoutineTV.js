@@ -39,36 +39,56 @@ function Pill({ on, onClick, children }) {
   );
 }
 
-function TaskBlock({ t, i, count, v, span, onJump }) {
+function TaskBlock({ t, i, count, v, span, onJump, onToggleDone }) {
   const pct = (t.minutes / span) * 100;
   const ring = t.isCurrent && !v.overtime;
   const radius = i === 0 ? '30px 0 0 30px' : i === count - 1 ? '0 30px 30px 0' : '0';
+  const dot = pct < 6 ? 30 : 40;
+  // The block and its completion dot are sibling buttons (no nested buttons), so tapping
+  // the dot never starts the task.
   return (
-    <button
-      onClick={() => onJump(i)}
-      aria-label={`Pular para ${t.name}`}
-      title={`${t.name} — ${t.minutes} min`}
+    <div
       style={{
         position: 'relative', overflow: 'hidden', flex: 'none', width: `${(t.minutes / v.total) * 100}%`,
-        background: t.color, borderRadius: radius, border: 0, padding: 0, cursor: 'pointer', font: 'inherit',
+        background: t.color, borderRadius: radius,
         boxShadow: [`inset -3px 0 0 ${C.bg}`, t.done && doneOverlay(0.62), ring && 'inset 0 0 0 7px #fff'].filter(Boolean).join(','),
         transition: 'box-shadow .3s',
       }}
     >
-      <div style={{ position: 'absolute', inset: '0 auto 0 0', width: `${t.isCurrent ? v.currentPct : 0}%`, background: 'rgba(0,0,0,.22)' }} />
-      <div style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 7, padding: 8, textAlign: 'center', boxSizing: 'border-box' }}>
-        <div style={{ fontSize: t.isCurrent ? 62 : 44, lineHeight: 1, animation: t.isCurrent ? 'bob 1.8s ease-in-out infinite' : 'none', opacity: t.done ? 0.5 : 1 }}>{t.icon}</div>
-        <div style={{ font: `900 ${pct < 7 ? 18 : 21}px/1.12 ${NUNITO}`, color: t.done ? C.doneInk : '#fff', textShadow: t.done ? 'none' : '0 2px 5px rgba(0,0,0,.3)' }}>{t.name}</div>
-        <div style={{ font: `700 17px ${NUNITO}`, whiteSpace: 'nowrap', color: t.done ? 'rgba(58,48,38,.8)' : 'rgba(255,255,255,.92)' }}>{t.minutes} min</div>
-      </div>
-      {t.done && (
-        <div style={{ position: 'absolute', top: 12, right: 12, width: 40, height: 40, borderRadius: 999, background: '#fff', color: C.check, display: 'flex', alignItems: 'center', justifyContent: 'center', font: `900 24px ${NUNITO}`, boxShadow: '0 3px 0 rgba(0,0,0,.15)' }}>✓</div>
-      )}
-    </button>
+      <button
+        onClick={() => onJump(i)}
+        aria-label={`Pular para ${t.name}`}
+        title={`${t.name} — ${t.shownMinutes} min`}
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', background: 'transparent', border: 0, padding: 0, cursor: 'pointer', font: 'inherit' }}
+      >
+        <div style={{ position: 'absolute', inset: '0 auto 0 0', width: `${t.isCurrent ? v.currentPct : 0}%`, background: 'rgba(0,0,0,.22)' }} />
+        <div style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 7, padding: 8, textAlign: 'center', boxSizing: 'border-box' }}>
+          <div style={{ fontSize: t.isCurrent ? 62 : 44, lineHeight: 1, animation: t.isCurrent ? 'bob 1.8s ease-in-out infinite' : 'none', opacity: t.done ? 0.5 : 1 }}>{t.icon}</div>
+          <div style={{ font: `900 ${pct < 7 ? 18 : 21}px/1.12 ${NUNITO}`, color: t.done ? C.doneInk : '#fff', textShadow: t.done ? 'none' : '0 2px 5px rgba(0,0,0,.3)' }}>{t.name}</div>
+          <div style={{ font: `700 17px ${NUNITO}`, whiteSpace: 'nowrap', color: t.done ? 'rgba(58,48,38,.8)' : 'rgba(255,255,255,.92)' }}>{t.shownMinutes} min</div>
+        </div>
+      </button>
+      <button
+        onClick={(e) => { e.stopPropagation(); onToggleDone(i); }}
+        aria-pressed={t.done}
+        aria-label={t.done ? `${t.name}: feita (desmarcar)` : `Marcar ${t.name} como feita`}
+        title={t.done ? 'Feita' : 'Marcar como feita'}
+        style={{
+          position: 'absolute', top: 12, right: pct < 6 ? '50%' : 12, transform: pct < 6 ? 'translateX(50%)' : 'none',
+          width: dot, height: dot, borderRadius: 999, padding: 0, cursor: 'pointer', boxSizing: 'border-box',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', font: `900 ${dot * 0.6}px ${NUNITO}`,
+          ...(t.done
+            ? { background: '#fff', color: C.check, border: 0, boxShadow: '0 3px 0 rgba(0,0,0,.15)' }
+            : { background: 'rgba(255,255,255,.18)', color: 'transparent', border: '4px solid rgba(255,255,255,.92)' }),
+        }}
+      >
+        ✓
+      </button>
+    </div>
   );
 }
 
-export default function RoutineTV({ v, closing, bufferMin, clock, startLabel, endLabel, isMorning, onPick, onJump, onReset, badge }) {
+export default function RoutineTV({ v, closing, bufferMin, clock, startLabel, endLabel, isMorning, onPick, onJump, onToggleDone, onExtend, onReset, badge }) {
   const scale = useStageScale();
   const ot = v.overtime;
   const span = v.total + bufferMin;
@@ -105,7 +125,7 @@ export default function RoutineTV({ v, closing, bufferMin, clock, startLabel, en
             <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
               <div style={{ display: 'flex', height: '100%', width: '100%', borderRadius: 30, background: C.track, boxShadow: '0 8px 0 rgba(0,0,0,.07)' }}>
                 {v.blocks.map((t, i) => (
-                  <TaskBlock key={t.id ?? i} t={t} i={i} count={v.blocks.length} v={v} span={span} onJump={onJump} />
+                  <TaskBlock key={t.id ?? i} t={t} i={i} count={v.blocks.length} v={v} span={span} onJump={onJump} onToggleDone={onToggleDone} />
                 ))}
               </div>
               <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${nowPct}%`, width: 6, background: C.ink, transform: 'translateX(-3px)', boxShadow: '0 0 0 2px rgba(255,255,255,.7)', pointerEvents: 'none' }} />
@@ -123,6 +143,7 @@ export default function RoutineTV({ v, closing, bufferMin, clock, startLabel, en
               <div style={{ fontSize: ot ? 50 : 38, lineHeight: 1, animation: 'bob 2.6s ease-in-out infinite', opacity: ot ? 1 : 0.5 }}>{closing.icon}</div>
               <div style={{ font: `900 ${ot ? 21 : 19}px/1.12 ${NUNITO}`, color: ot ? '#fff' : C.muted, textShadow: ot ? '0 2px 5px rgba(0,0,0,.3)' : 'none' }}>{closing.name}</div>
               <div style={{ font: `800 15px ${NUNITO}`, color: ot ? 'rgba(255,255,255,.95)' : C.muted }}>{v.closeSub}</div>
+              <button onClick={onExtend} aria-label={`Mais 5 minutos até ${closing.name}`} style={{ marginTop: 4, background: '#fff', color: C.ink, padding: '7px 14px', borderRadius: 999, border: 0, font: `900 17px ${NUNITO}`, whiteSpace: 'nowrap', cursor: 'pointer', boxShadow: '0 3px 0 rgba(0,0,0,.18)' }}>+5 min</button>
               {ot && (
                 <button onClick={onReset} style={{ marginTop: 4, background: '#fff', color: C.ink, padding: '7px 14px', borderRadius: 999, border: 0, font: `900 17px ${NUNITO}`, whiteSpace: 'nowrap', cursor: 'pointer', boxShadow: '0 3px 0 rgba(0,0,0,.18)' }}>↺ Recomeçar</button>
               )}
@@ -163,7 +184,7 @@ export default function RoutineTV({ v, closing, bufferMin, clock, startLabel, en
                   <div style={{ width: 58, height: 58, flex: 'none', borderRadius: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, background: `${n.color}2e` }}>{n.icon}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ font: `800 24px/1.15 ${NUNITO}` }}>{n.name}</div>
-                    <div style={{ font: `700 17px ${NUNITO}`, color: C.muted }}>às {n.at} · {n.minutes} min</div>
+                    <div style={{ font: `700 17px ${NUNITO}`, color: C.muted }}>às {n.at} · {n.shownMinutes} min</div>
                   </div>
                 </div>
               ))}

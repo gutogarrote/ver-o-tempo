@@ -22,34 +22,50 @@ function IconToggle({ on, onClick, label, children }) {
   );
 }
 
-function TaskRow({ t, i, count, v, onJump }) {
+function TaskRow({ t, i, count, v, onJump, onToggleDone }) {
   const cur = t.isCurrent && !v.overtime;
   const radius = i === 0 ? '20px 20px 0 0' : i === count - 1 ? '0 0 20px 20px' : '0';
+  // Row and completion dot are sibling buttons, so tapping the dot never starts the task.
   return (
-    <button
-      onClick={() => onJump(i)}
-      aria-label={`Pular para ${t.name}`}
+    <div
       style={{
         position: 'relative', overflow: 'hidden', flex: 'none', height: t.minutes * PX_PER_MIN, width: '100%',
-        background: t.color, borderRadius: radius, border: 0, padding: 0, cursor: 'pointer', font: 'inherit', textAlign: 'left',
+        background: t.color, borderRadius: radius,
         boxShadow: [`inset 0 -2px 0 ${C.bg}`, t.done && doneOverlay(0.68)].filter(Boolean).join(','),
         ...(cur ? { outline: '4px solid #fff', outlineOffset: -4, zIndex: 1 } : {}),
       }}
     >
-      <div style={{ position: 'absolute', inset: '0 0 auto 0', height: `${t.isCurrent ? v.currentPct : 0}%`, background: 'rgba(0,0,0,.2)' }} />
-      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 9, height: '100%', padding: '0 12px', boxSizing: 'border-box' }}>
-        <div style={{ fontSize: cur ? 26 : 20, lineHeight: 1, flex: 'none', animation: cur ? 'bob 1.8s ease-in-out infinite' : 'none', opacity: t.done ? 0.55 : 1 }}>{t.icon}</div>
-        <div style={{ flex: 1, minWidth: 0, font: `${cur ? 900 : 800} ${cur ? 18 : 16}px ${NUNITO}`, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: t.done ? C.doneInk : '#fff', textShadow: t.done ? 'none' : '0 1px 3px rgba(0,0,0,.35)' }}>{t.name}</div>
-        <div style={{ font: `700 13px ${NUNITO}`, whiteSpace: 'nowrap', color: t.done ? 'rgba(58,48,38,.8)' : 'rgba(255,255,255,.9)' }}>{t.minutes} min</div>
-        {t.done && (
-          <div style={{ width: 20, height: 20, flex: 'none', borderRadius: 999, background: '#fff', color: C.check, display: 'flex', alignItems: 'center', justifyContent: 'center', font: `900 13px ${NUNITO}` }}>✓</div>
-        )}
-      </div>
-    </button>
+      <button
+        onClick={() => onJump(i)}
+        aria-label={`Pular para ${t.name}`}
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', background: 'transparent', border: 0, padding: 0, cursor: 'pointer', font: 'inherit', textAlign: 'left' }}
+      >
+        <div style={{ position: 'absolute', inset: '0 0 auto 0', height: `${t.isCurrent ? v.currentPct : 0}%`, background: 'rgba(0,0,0,.2)' }} />
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 9, height: '100%', padding: '0 46px 0 12px', boxSizing: 'border-box' }}>
+          <div style={{ fontSize: cur ? 26 : 20, lineHeight: 1, flex: 'none', animation: cur ? 'bob 1.8s ease-in-out infinite' : 'none', opacity: t.done ? 0.55 : 1 }}>{t.icon}</div>
+          <div style={{ flex: 1, minWidth: 0, font: `${cur ? 900 : 800} ${cur ? 18 : 16}px ${NUNITO}`, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: t.done ? C.doneInk : '#fff', textShadow: t.done ? 'none' : '0 1px 3px rgba(0,0,0,.35)' }}>{t.name}</div>
+          <div style={{ font: `700 13px ${NUNITO}`, whiteSpace: 'nowrap', color: t.done ? 'rgba(58,48,38,.8)' : 'rgba(255,255,255,.9)' }}>{t.shownMinutes} min</div>
+        </div>
+      </button>
+      <button
+        onClick={(e) => { e.stopPropagation(); onToggleDone(i); }}
+        aria-pressed={t.done}
+        aria-label={t.done ? `${t.name}: feita (desmarcar)` : `Marcar ${t.name} como feita`}
+        style={{
+          position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 26, height: 26, borderRadius: 999,
+          padding: 0, cursor: 'pointer', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', font: `900 15px ${NUNITO}`,
+          ...(t.done
+            ? { background: '#fff', color: C.check, border: 0 }
+            : { background: 'rgba(255,255,255,.18)', color: 'transparent', border: '3px solid rgba(255,255,255,.92)' }),
+        }}
+      >
+        ✓
+      </button>
+    </div>
   );
 }
 
-export default function RoutinePhone({ v, closing, clock, isMorning, onPick, onJump, onReset, badge }) {
+export default function RoutinePhone({ v, closing, clock, isMorning, onPick, onJump, onToggleDone, onExtend, onReset, badge }) {
   const ot = v.overtime;
   const agora = agoraColors({ urgent: v.urgent, overtime: ot, color: v.current.color });
   const nowY = v.elapsedOnTrack * PX_PER_MIN;
@@ -116,7 +132,7 @@ export default function RoutinePhone({ v, closing, clock, isMorning, onPick, onJ
         <div ref={trackRef} onScroll={onScroll} className="no-scrollbar" style={{ position: 'relative', flex: 1, minHeight: 0, borderRadius: 20, background: C.track, overflowY: 'auto', overflowX: 'hidden' }}>
           <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: v.total * PX_PER_MIN }}>
             {v.blocks.map((t, i) => (
-              <TaskRow key={t.id ?? i} t={t} i={i} count={v.blocks.length} v={v} onJump={onJump} />
+              <TaskRow key={t.id ?? i} t={t} i={i} count={v.blocks.length} v={v} onJump={onJump} onToggleDone={onToggleDone} />
             ))}
             {!ot && (
               <div style={{ position: 'absolute', zIndex: 3, left: 0, right: 0, top: nowY, height: 5, transform: 'translateY(-2px)', background: C.ink, borderRadius: 999, boxShadow: '0 0 0 2px rgba(255,246,233,.85)', pointerEvents: 'none' }} />
@@ -131,9 +147,10 @@ export default function RoutinePhone({ v, closing, clock, isMorning, onPick, onJ
         }}>
           <div style={{ fontSize: ot ? 32 : 24, lineHeight: 1, flex: 'none', animation: 'bob 2.6s ease-in-out infinite', opacity: ot ? 1 : 0.5 }}>{closing.icon}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ font: `900 ${ot ? 18 : 16}px ${NUNITO}`, whiteSpace: 'nowrap', color: ot ? '#fff' : C.muted, textShadow: ot ? '0 1px 3px rgba(0,0,0,.3)' : 'none' }}>{closing.name}</div>
+            <div style={{ font: `900 ${ot ? 18 : 16}px/1.1 ${NUNITO}`, color: ot ? '#fff' : C.muted, textShadow: ot ? '0 1px 3px rgba(0,0,0,.3)' : 'none' }}>{closing.name}</div>
             <div style={{ font: `700 13px ${NUNITO}`, whiteSpace: 'nowrap', color: ot ? 'rgba(255,255,255,.95)' : C.muted }}>{v.closeSub}</div>
           </div>
+          <button onClick={onExtend} aria-label={`Mais 5 minutos até ${closing.name}`} style={{ flex: 'none', background: '#fff', color: C.ink, padding: '6px 12px', borderRadius: 999, border: 0, font: `900 14px ${NUNITO}`, whiteSpace: 'nowrap', cursor: 'pointer', boxShadow: '0 2px 0 rgba(0,0,0,.18)' }}>+5 min</button>
           {ot && (
             <button onClick={onReset} style={{ flex: 'none', background: '#fff', color: C.ink, padding: '6px 12px', borderRadius: 999, border: 0, font: `900 14px ${NUNITO}`, whiteSpace: 'nowrap', cursor: 'pointer', boxShadow: '0 2px 0 rgba(0,0,0,.18)' }}>↺ Recomeçar</button>
           )}
