@@ -23,12 +23,12 @@ function useIsPhone() {
   return isPhone;
 }
 
-export default function Home({ routines, setRoutines, currentTime }) {
+export default function Home({ routines, setRoutines, currentTime, initialRoutineId = 'morning' }) {
   // Map routines to morning/evening for today (using 'monday' as in current data)
   const todayKey = 'monday';
   const available = routines?.[todayKey] || {};
 
-  const [routineId, setRoutineId] = useState('morning');
+  const [routineId, setRoutineId] = useState(initialRoutineId);
   const routine = available[routineId] || { name: 'Rotina', tasks: [] };
 
   const tasks = routine.tasks || EMPTY_TASKS;

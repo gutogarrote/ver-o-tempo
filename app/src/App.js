@@ -2,9 +2,11 @@ import React, { useState, useEffect } from "react";
 import AudioAlerts from "./components/AudioAlerts";
 import "./App.css";
 import Home from "./pages/Home";
+import { applyRoutineUrl, parseRoutineUrl } from './lib/routineUrl';
 
 function App() {
   const [routines, setRoutines] = useState(null);
+  const [urlConfig] = useState(() => parseRoutineUrl(window.location.search));
   const [currentTime, setCurrentTime] = useState(new Date());
 
   function normalizeMinutes(data) {
@@ -26,42 +28,50 @@ function App() {
   }
 
   useEffect(() => {
-    // Load from localStorage first; fallback to public/routines.json
-    try {
-      const stored = localStorage.getItem("routines");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        const norm = normalizeMinutes(parsed);
-        setRoutines(norm);
-        try { localStorage.setItem("routines", JSON.stringify(norm)); } catch (_) {}
-      } else {
-        fetch("/routines.json?v=" + Date.now(), { cache: "no-store" })
-          .then((r) => r.json())
-          .then((data) => {
-            const norm = normalizeMinutes(data);
-            setRoutines(norm);
-            try { localStorage.setItem("routines", JSON.stringify(norm)); } catch (_) {}
-          })
-          .catch((err) => console.warn("Failed to load routines.json", err));
+    let active = true;
+    function load(data) {
+      if (!active) return;
+      const next = applyRoutineUrl(normalizeMinutes(data), urlConfig);
+      setRoutines(next);
+      // An invalid link must not change existing storage, even during fallback.
+      if (urlConfig.status !== 'invalid') {
+        try { localStorage.setItem('routines', JSON.stringify(next)); } catch (_) {}
       }
-    } catch (e) {
-      console.warn("Failed to parse stored routines; refetching", e);
-      fetch("/routines.json?v=" + Date.now(), { cache: "no-store" })
-        .then((r) => r.json())
-        .then((data) => setRoutines(normalizeMinutes(data)))
-        .catch((err) => console.warn("Failed to load routines.json", err));
     }
+    async function initialize() {
+      try {
+        const stored = localStorage.getItem('routines');
+        if (stored) {
+          const data = JSON.parse(stored);
+          if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Invalid routines');
+          load(data);
+          return;
+        }
+      } catch (error) {
+        console.warn('Failed to read stored routines; refetching', error);
+      }
+      try {
+        const response = await fetch('/routines.json?v=' + Date.now(), { cache: 'no-store' });
+        load(await response.json());
+      } catch (error) {
+        console.warn('Failed to load routines.json', error);
+        // A valid link remains usable even when the default file is unavailable.
+        if (urlConfig.status === 'valid') load({});
+      }
+    }
+    initialize();
 
     const timer = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+    return () => { active = false; clearInterval(timer); };
+  }, [urlConfig]);
 
   return (
     <div className="min-h-screen" style={{ background: "#FFF6E9" }}>
+      {urlConfig.status === 'invalid' && <div role="alert" className="p-4">{urlConfig.error}</div>}
       {routines ? (
-        <Home routines={routines} setRoutines={setRoutines} currentTime={currentTime} />
+        <Home initialRoutineId={urlConfig.period || 'morning'} routines={routines} setRoutines={setRoutines} currentTime={currentTime} />
       ) : (
         <div className="p-6">Carregando rotinas…</div>
       )}

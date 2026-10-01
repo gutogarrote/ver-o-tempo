@@ -80,6 +80,10 @@ Para a tela da criança ficar limpa, os ajustes ficam escondidos atrás do botã
 
 As mudanças ficam guardadas **no próprio aparelho**, no navegador.
 
+### Configuração por URL
+
+Abra um link para carregar tarefas, ordem e minutos da manhã ou noite em outro aparelho. Consulte o [guia completo para gerar links de rotina](docs/url-rotina.md), com catálogo, exemplos e regras de edição e recarga.
+
 ### Dicas para funcionar melhor
 - **Comece com poucas tarefas.** Quatro ou cinco já fazem diferença. Dá para aumentar depois.
 - **Deixe a criança escolher** os emojis e as cores das tarefas dela. Ela vai se sentir dona da rotina.
