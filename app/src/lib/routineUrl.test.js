@@ -1,9 +1,45 @@
 import fs from 'fs';
 import path from 'path';
+import { execFileSync } from 'child_process';
 import catalog from './taskCatalog.json';
 import { applyRoutineUrl, parseRoutineUrl, serializeRoutineUrl } from './routineUrl';
 
 const query = value => '?rotina=' + encodeURIComponent(value);
+
+test('documented Python code generates links decoded by the real parser', () => {
+  const doc = fs.readFileSync(path.resolve(process.cwd(), '../docs/url-rotina.md'), 'utf8');
+  const snippets = [...doc.matchAll(/```python\n([\s\S]*?)```/g)];
+  expect(snippets).toHaveLength(1);
+  const runExample = code => execFileSync('python3', ['-c', code], { encoding: 'utf8' }).trim().split('\n');
+  const verifyLinks = links => {
+    expect(links).toHaveLength(2);
+    links.forEach((link, index) => {
+      const url = new URL(link);
+      expect(url.searchParams.getAll('rotina')).toHaveLength(1);
+      const parsed = parseRoutineUrl(url.search);
+      expect(parsed.status).toBe('valid');
+      expect(parsed.period).toBe('evening');
+      expect(parsed.routine.tasks.map(({ name, minutes }) => ({ name, minutes }))).toEqual(index === 0
+        ? [{ name: 'Banho', minutes: 15 }, { name: 'Jantar', minutes: 20 }, { name: 'Trocar de roupa', minutes: 10 }]
+        : [{ name: 'Abraço, água: sim', minutes: 5 }]);
+    });
+  };
+  const code = snippets[0][1];
+  const links = runExample(code);
+  verifyLinks(links);
+  links.forEach(link => expect(new URL(link).origin).toBe('http://localhost:3000'));
+  // Run the same example with a base containing existing query values and a fragment.
+  const base = 'https://example.org/app/?utm=family&empty=&rotina=old&rotina=older#fita';
+  const arbitraryLinks = runExample(code.replace("base = 'http://localhost:3000/'", `base = '${base}'`));
+  verifyLinks(arbitraryLinks);
+  arbitraryLinks.forEach(link => {
+    const url = new URL(link);
+    expect(url.origin).toBe('https://example.org');
+    expect(url.pathname).toBe('/app/');
+    expect(url.hash).toBe('#fita');
+    expect([...url.searchParams].filter(([key]) => key !== 'rotina')).toEqual([['utm', 'family'], ['empty', '']]);
+  });
+});
 
 test('catalog is complete, stable and has usable presentation', () => {
   expect(Object.keys(catalog)).toEqual(['ac', 'cf', 'ma', 'de', 'ro', 'mo', 'xi', 'sa', 'ba', 'ja', 'co', 'do', 'br', 'li', 'bo', 'ca']);

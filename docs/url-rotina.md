@@ -148,10 +148,16 @@ Python padrão (mesmo formato; `quote` interno com `safe=''`):
 from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode, quote
 base = 'http://localhost:3000/'
 u = urlsplit(base)
-params = [(k, v) for k, v in parse_qsl(u.query) if k != 'rotina']
+params = [(k, v) for k, v in parse_qsl(u.query, keep_blank_values=True) if k != 'rotina']
 params.append(('rotina', '1|n|ba:15,ja:20,ro:10'))
 link = urlunsplit((u.scheme, u.netloc, u.path, urlencode(params), u.fragment))
+print(link)
+# Nome personalizado: substituir rotina e recalcular o link completo.
 custom = '~' + quote('Abraço, água: sim', safe='') + ':5'
+params = [(k, v) for k, v in params if k != 'rotina']
+params.append(('rotina', '1|n|' + custom))
+link = urlunsplit((u.scheme, u.netloc, u.path, urlencode(params), u.fragment))
+print(link)
 ```
 
 No código do projeto, `serializeRoutineUrl(baseUrl, period, tasks)` em
@@ -181,7 +187,9 @@ Salvar uma edição explicitamente depois do fallback continua permitido.
 Parâmetros irrelevantes, inclusive malformados, são ignorados.
 Nomes são texto renderizado pelo React, sem `eval` ou injeção de HTML.
 
-Para verificar exemplos, parser, catálogo, persistência e interface em DOM:
+Para verificar exemplos, parser, catálogo, persistência e interface em DOM, use
+os comandos abaixo. Os testes executam o bloco Python acima e passam as URLs geradas ao parser real;
+por isso, `python3` precisa estar disponível no PATH.
 
 ```bash
 cd app
