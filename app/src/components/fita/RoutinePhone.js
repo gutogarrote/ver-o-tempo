@@ -95,10 +95,10 @@ export default function RoutinePhone({ v, closing, clock, isMorning, onPick, onJ
       {/* AGORA card */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9, background: agora.bg, border: `3px solid ${agora.border}`, borderRadius: 20, padding: '12px 13px', boxShadow: '0 4px 0 rgba(0,0,0,.06)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 54, height: 54, flex: 'none', borderRadius: 17, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, background: `${v.current.color}2e` }}>{v.current.icon}</div>
+          <div style={{ width: 54, height: 54, flex: 'none', borderRadius: 17, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30 / Math.sqrt(v.current.catalogIds?.length || 1), whiteSpace: 'nowrap', background: `${v.current.color}2e` }}>{v.current.icon}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ font: `900 11px ${NUNITO}`, letterSpacing: 2, color: C.muted }}>AGORA</div>
-            <div style={{ fontFamily: FREDOKA, fontSize: 26, fontWeight: 600, lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.current.name}</div>
+            <div style={{ fontFamily: FREDOKA, fontSize: 26, fontWeight: 600, lineHeight: 1.15, ...(v.current.catalogIds?.length > 1 ? { fontSize: 20, overflowWrap: 'anywhere' } : { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }) }}>{v.current.name}</div>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontFamily: FREDOKA, fontWeight: 600, fontSize: 34, lineHeight: 1.1, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', color: agora.count }}>{v.countdown}</div>

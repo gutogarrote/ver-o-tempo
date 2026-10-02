@@ -121,7 +121,7 @@ const RoutineEditor = ({ routine, onSave }) => {
               type="text"
               value={task.icon}
               onChange={(e) => handleTaskChange(task.id, 'icon', e.target.value)}
-              className="border p-1 rounded w-12"
+              className={task.catalogIds?.length > 1 ? 'border p-1 rounded w-24' : 'border p-1 rounded w-12'}
             />
             <button onClick={() => handleDeleteTask(task.id)} className="bg-red-500 text-white p-1 rounded">X</button>
           </div>

@@ -2,11 +2,12 @@ import React, { useState, useEffect } from "react";
 import AudioAlerts from "./components/AudioAlerts";
 import "./App.css";
 import Home from "./pages/Home";
+import defaultRoutines from './lib/defaultRoutines.json';
 import { applyRoutineUrl, parseRoutineUrl } from './lib/routineUrl';
 
 function App() {
   const [routines, setRoutines] = useState(null);
-  const [urlConfig] = useState(() => parseRoutineUrl(window.location.search));
+  const [urlConfig] = useState(() => parseRoutineUrl(window.location.search, window.location.pathname));
   const [currentTime, setCurrentTime] = useState(new Date());
 
   function normalizeMinutes(data) {
@@ -34,13 +35,13 @@ function App() {
       const next = applyRoutineUrl(normalizeMinutes(data), urlConfig);
       setRoutines(next);
       // An invalid link must not change existing storage, even during fallback.
-      if (urlConfig.status !== 'invalid') {
+      if (urlConfig.status !== 'invalid' && urlConfig.source !== 'path') {
         try { localStorage.setItem('routines', JSON.stringify(next)); } catch (_) {}
       }
     }
     async function initialize() {
       try {
-        const stored = localStorage.getItem('routines');
+        const stored = urlConfig.status === 'invalid' || urlConfig.source === 'path' ? null : localStorage.getItem('routines');
         if (stored) {
           const data = JSON.parse(stored);
           if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Invalid routines');
@@ -55,8 +56,8 @@ function App() {
         load(await response.json());
       } catch (error) {
         console.warn('Failed to load routines.json', error);
-        // A valid link remains usable even when the default file is unavailable.
-        if (urlConfig.status === 'valid') load({});
+        // A bundled copy keeps safe fallback and pathname shortcuts usable offline.
+        load(defaultRoutines);
       }
     }
     initialize();

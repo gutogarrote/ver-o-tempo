@@ -82,7 +82,7 @@ As mudanças ficam guardadas **no próprio aparelho**, no navegador.
 
 ### Configuração por URL
 
-Abra um link para carregar tarefas, ordem e minutos da manhã ou noite em outro aparelho. Consulte o [guia completo para gerar links de rotina](docs/url-rotina.md), com catálogo, exemplos e regras de edição e recarga.
+Abra um link como `/?rotina=1.n.ba-20.ja-25.ma-de-5.1930` para carregar tarefas simples ou combinadas, ordem, minutos e final opcional. Os atalhos `/0720` e `/1930` abrem o padrão da manhã/noite com esse horário final. Consulte o [guia completo para gerar links de rotina](docs/url-rotina.md), com catálogo, exemplos e regras de edição e recarga.
 
 ### Dicas para funcionar melhor
 - **Comece com poucas tarefas.** Quatro ou cinco já fazem diferença. Dá para aumentar depois.

@@ -57,7 +57,7 @@ function TaskBlock({ t, i, count, v, span, onJump }) {
     >
       <div style={{ position: 'absolute', inset: '0 auto 0 0', width: `${t.isCurrent ? v.currentPct : 0}%`, background: 'rgba(0,0,0,.22)' }} />
       <div style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 7, padding: 8, textAlign: 'center', boxSizing: 'border-box' }}>
-        <div style={{ fontSize: t.isCurrent ? 62 : 44, lineHeight: 1, animation: t.isCurrent ? 'bob 1.8s ease-in-out infinite' : 'none', opacity: t.done ? 0.5 : 1 }}>{t.icon}</div>
+        <div style={{ fontSize: (t.isCurrent ? 62 : 44) / Math.sqrt(t.catalogIds?.length || 1), whiteSpace: 'nowrap', lineHeight: 1, animation: t.isCurrent ? 'bob 1.8s ease-in-out infinite' : 'none', opacity: t.done ? 0.5 : 1 }}>{t.icon}</div>
         <div style={{ font: `900 ${pct < 7 ? 18 : 21}px/1.12 ${NUNITO}`, color: t.done ? C.doneInk : '#fff', textShadow: t.done ? 'none' : '0 2px 5px rgba(0,0,0,.3)' }}>{t.name}</div>
         <div style={{ font: `700 17px ${NUNITO}`, whiteSpace: 'nowrap', color: t.done ? 'rgba(58,48,38,.8)' : 'rgba(255,255,255,.92)' }}>{t.minutes} min</div>
       </div>
@@ -133,10 +133,10 @@ export default function RoutineTV({ v, closing, bufferMin, clock, startLabel, en
           <div style={{ display: 'flex', gap: 18, flex: 1, minHeight: 0 }}>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: agora.bg, border: `4px solid ${agora.border}`, borderRadius: 28, padding: '20px 26px', boxSizing: 'border-box', boxShadow: '0 6px 0 rgba(0,0,0,.06)' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 22, flex: 'none' }}>
-                <div style={{ width: 104, height: 104, flex: 'none', borderRadius: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 58, background: `${v.current.color}2e` }}>{v.current.icon}</div>
+                <div style={{ width: 104, height: 104, flex: 'none', borderRadius: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 58 / Math.sqrt(v.current.catalogIds?.length || 1), whiteSpace: 'nowrap', background: `${v.current.color}2e` }}>{v.current.icon}</div>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ font: `900 16px ${NUNITO}`, letterSpacing: 3, color: C.muted }}>AGORA</div>
-                  <div style={{ fontFamily: FREDOKA, fontSize: 42, fontWeight: 600, lineHeight: 1.12, letterSpacing: -0.5, whiteSpace: 'nowrap' }}>{v.current.name}</div>
+                  <div style={{ fontFamily: FREDOKA, fontSize: 42, fontWeight: 600, lineHeight: 1.12, letterSpacing: -0.5, overflowWrap: 'anywhere' }}>{v.current.name}</div>
                   <div style={{ marginTop: 6, display: 'inline-block', ...statusStyle({ urgent: v.urgent, overtime: ot }, { size: 20, pad: '6px 16px' }), ...(v.urgent || ot ? {} : { padding: '6px 0' }) }}>{v.statusText}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
@@ -160,7 +160,7 @@ export default function RoutineTV({ v, closing, bufferMin, clock, startLabel, en
               )}
               {v.nextUp.map((n, i) => (
                 <div key={n.id ?? i} style={{ display: 'flex', alignItems: 'center', gap: 14, background: C.rowBg, borderRadius: 20, padding: '12px 14px' }}>
-                  <div style={{ width: 58, height: 58, flex: 'none', borderRadius: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, background: `${n.color}2e` }}>{n.icon}</div>
+                  <div style={{ width: 58, height: 58, flex: 'none', borderRadius: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 / Math.sqrt(n.catalogIds?.length || 1), whiteSpace: 'nowrap', background: `${n.color}2e` }}>{n.icon}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ font: `800 24px/1.15 ${NUNITO}` }}>{n.name}</div>
                     <div style={{ font: `700 17px ${NUNITO}`, color: C.muted }}>às {n.at} · {n.minutes} min</div>

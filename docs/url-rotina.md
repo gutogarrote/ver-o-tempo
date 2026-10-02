@@ -1,56 +1,26 @@
-# Configurar rotina por URL (versão 1)
+# Rotina por URL — versão 1
 
-Este documento é suficiente para um agente gerar links sem abrir o editor. A URL
-transporta tarefas, ordem, durações e escolha de manhã/noite. Não transporta
-contador, progresso, início em andamento ou conclusão de tarefas. Não requer
-sincronização, banco de dados, criptografia ou serviços externos.
-
-## Gramática exata
-
-Use exatamente um parâmetro de query chamado `rotina`. Seu valor, **antes do
-encoding externo**, segue esta gramática:
+## Gramática
 
 ```text
-valor = "1" "|" periodo "|" tarefa ("," tarefa)*
-periodo = "m" | "n"
-tarefa = id ":" minutos | "~" nomeCodificado ":" minutos
+?rotina=1.periodo.tarefa[.tarefa...][.hhmm]
+periodo = m | n
+simples = id-minutos
+combinada = id1-id2[-id3...]-minutos
+customizada = ~nomeEscapado-minutos
 ```
 
-- `1`: versão obrigatória. Outras versões são inválidas.
-- `m`: manhã (`monday.morning`); `n`: noite (`monday.evening`). A arquitetura
-  atual usa esses mesmos períodos todos os dias, não configura dia da semana.
-- `id`: um identificador exato do catálogo abaixo, sensível a maiúsculas.
-- `minutos`: inteiro decimal de 1 a 180, sem sinal, fração, espaços, expoente
-  ou zeros à esquerda. Cada tarefa precisa informar sua duração; não há duração implícita.
-- Entre 1 e 40 tarefas; soma máxima de 720 minutos (12 horas).
-- A ordem na lista é a ordem de execução. Repetir uma tarefa é permitido:
-  `ba:10,ba:5` representa duas ocorrências com IDs internos distintos.
-- `nomeCodificado`: nome personalizado com `encodeURIComponent(nome)` (UTF-8),
-  de 1 a 80 unidades UTF-16 depois de decodificado, não só espaços e sem controles
-  U+0000–U+001F/U+007F. O prefixo `~` distingue nomes de IDs.
-- Encode o **valor inteiro** como um valor de query com `URLSearchParams` ou
-  `encodeURIComponent`. Nomes personalizados passam por duas camadas de encoding:
-  a interna protege `,`, `:` e `|`; a externa protege a query. Não use Base64.
-- Limite de 6000 caracteres no valor bruto de query (antes do decoding externo).
+Use exatamente um parâmetro `rotina`. Pontos e hífens são delimitadores literais,
+sem percent-encoding no formato comum: `1.n.ba-20.ja-25.ma-de-5.1930`.
+O último segmento após hífen é a duração TOTAL da tarefa combinada, não por ID.
+Os anteriores são IDs exatos do catálogo. Ordem e repetições são preservadas.
+`ma-de-5` tem label “Lavar as mãos + Escovar os dentes”, ícone `🧼🪥`
+(sem espaços), cor do primeiro ID e cinco minutos no total.
 
-Não há parâmetros opcionais da feature na versão 1. Outros parâmetros e o
-fragmento são ignorados e podem coexistir. `rotina` vazio ou repetido é inválido.
-A ordem dos demais parâmetros não importa. Use preferencialmente a forma
-canônica produzida por `URLSearchParams`, ilustrada abaixo.
-
-A configuração importada tem nome `Manhã` ou `Noite`, horário limite `06:30` ou
-`21:00`, respectivamente, e apresentação do catálogo. Esses valores são fixos
-na versão 1, para não depender de configurações do aparelho receptor. Tarefas
-personalizadas usam emoji `✨` e cor `#CCCCCC`. Ícones, cores personalizados,
-nome da rotina e horários diferentes não são transportados nesta versão; podem
-ser editados localmente pelos controles existentes.
-
-## Catálogo completo
-
-Fonte versionada e usada diretamente pelo parser:
-[`app/src/lib/taskCatalog.json`](../app/src/lib/taskCatalog.json).
-IDs e significados são estáveis na versão 1; o JSON contém nome, emoji e cor.
-Nenhum banco de dados ou fetch adicional é necessário.
+Versão somente `1`; `m` = `monday.morning`, `n` = `monday.evening`.
+Entre 1 e 40 tarefas, até 40 IDs por combinação, duração inteira 1..180,
+sem zeros iniciais, sinais ou frações; soma até 720 minutos. Valor bruto de
+query limitado a 6000 caracteres. IDs não mudaram:
 
 | ID | Nome | Ícone |
 | --- | --- | --- |
@@ -71,128 +41,120 @@ Nenhum banco de dados ou fetch adicional é necessário.
 | bo | Arrumar brinquedos | 🧸 |
 | ca | Arrumar cama | 🛏️ |
 
-“Se trocar” usa `ro`; “escovar dentes” usa `de`; “arrumar a cama” usa `ca`.
-`xi` corresponde ao antigo “Xixi tático”, com nome mais direto “Fazer xixi”.
-Tarefas personalizadas existentes continuam funcionando no editor. Para
-preservar exatamente o nome “Xixi tático” num link, use um nome personalizado.
-O serializer escolhe ID pelo nome exato do catálogo; outros nomes usam `~`.
 
-## Precedência, edição e persistência
+## Customizadas e escaping
 
-1. Ao carregar a página, uma URL válida tem prioridade sobre o localStorage e
-   o arquivo padrão. Substitui **somente o período indicado**, inclusive seu
-   horário e nome, e seleciona esse período na tela.
-2. A outra rotina e outros dias são preservados do browser. Na ausência de
-   dados locais, vêm de `app/public/routines.json`. Se esse arquivo falhar e
-   houver URL válida, o período do link ainda pode carregar.
-3. A configuração resultante é salva na chave `routines` do localStorage.
-   Se armazenamento estiver indisponível, o link funciona na sessão, sem
-   persistência. Não há sincronização entre dispositivos.
-4. A importação ocorre apenas na carga, não a cada render ou tick. Nome das
-   tarefas, ordem, minutos, emoji e cor continuam editáveis. Use “Save Routine”
-   ou “Salvar Alterações” no editor para guardar as mudanças no browser.
-5. **Reload ou reabertura do link com `rotina`:** reaplica a configuração
-   original do link e substitui as edições locais daquele período. O endereço
-   não é atualizado automaticamente pelo editor. Para conservar edições na
-   próxima carga, abra o endereço sem `rotina`, ou gere um novo link atualizado.
-6. **Entrada sem `rotina`:** mantém o comportamento anterior, rotina local se
-   existe, senão padrão; começa na manhã. Parâmetros irrelevantes não apagam dados.
+Interpretamos “prefixo til” como `~` obrigatório, inclusive no exemplo música:
+`~musica-10`. Sem til, `musica` seria um ID desconhecido e é inválido.
+Nomes têm 1..80 unidades UTF-16, não só espaços, sem controles U+0000..001F/007F.
+Usam ícone ✨ e cor #CCCCCC. React renderiza nomes como texto, sem HTML ou eval.
 
-O mesmo link reproduz os mesmos nomes, ordem, durações e metadados fixos do
-**período transportado** em qualquer dispositivo. O outro período pode variar.
-O relógio/progresso visual depende da hora atual, como antes.
+Escaping interno: `encodeURIComponent(nome)`, substituindo também `.` por `%2E`
+e `-` por `%2D` (a função padrão não escapa esses caracteres).
+Depois use `encodeURIComponent(valorInteiro)` como camada externa da query.
+Assim pontos e hífens do NOME chegam ao parser como escapes internos, enquanto
+os delimitadores continuam literais. `%`, acentos, espaços e símbolos têm duas
+camadas quando necessário. Não decodifique novamente antes de gerar o link.
+IDs e delimitadores comuns não recebem `%2E`/`%2D`.
 
-## Gerar e modificar com base arbitrária
+## Horário final, pathname e temporização
 
-A base precisa ser uma URL absoluta de uma instalação do app. Pode conter
-caminho, query e fragmento. Estes exemplos usam `http://localhost:3000/`, uma
-base real do servidor de desenvolvimento; troque pela origem da sua instalação
-para abrir em outro dispositivo. Os exemplos abaixo são validados pelos testes
-com o parser real, inclusive a lista de tarefas e o catálogo.
+Somente o ÚLTIMO token exatamente `^\d{4}$` é horário: HH 00..23, MM 00..59.
+`0720` vira `07:20`; `1920` vira `19:20`; `0000`/`2359` válidos,
+`2400`/`1260` inválidos. Token de horário em outra posição invalida o link.
+Sem horário, permanece o comportamento anterior: limite 06:30 para manhã,
+21:00 para noite. O código atual de Home já usa limite no relógio local,
+calcula início subtraindo a soma das tarefas, mantém atraso por 180 minutos e
+então avança ao dia seguinte. Isso não era um cronômetro relativo automático;
+não foi introduzido prazo absoluto novo. O menu permite modo relativo ao início
+e ajustes como antes. O link não transporta data, progresso ou início em andamento.
 
-**Banho → jantar → trocar de roupa** (15, 20 e 10 minutos, noite):
+Atalhos somente `/hhhh`, sem barra final ou segmentos extras:
+[/0720 — padrão manhã](http://localhost:3000/0720),
+[/1930 — padrão noite](http://localhost:3000/1930),
+[/2045 — padrão noite](http://localhost:3000/2045),
+[/1200 — limiar noite](http://localhost:3000/1200).
+Antes de 12h seleciona manhã, a partir de 12h noite. Sempre carrega tarefas do
+arquivo padrão, nunca tarefas personalizadas do localStorage. O atalho não
+sobrescreve storage ao carregar; salvar explicitamente no editor continua possível.
 
-[Banho, jantar e roupa](http://localhost:3000/?rotina=1%7Cn%7Cba%3A15%2Cja%3A20%2Cro%3A10)
+Query `rotina` válida tem prioridade sobre qualquer pathname, inclusive inválido.
+Query `rotina` inválida não recorre ao atalho: usa padrão seguro com erro amigável.
+Sem `rotina`, `/` mantém fluxo local/padrão; outros caminhos são atalhos inválidos.
+A carga de link inválido ignora dados locais e não grava nem apaga storage.
+Se o fetch falhar, uma cópia embarcada do padrão garante o fallback seguro;
+o teste de sincronização exige igualdade com `app/public/routines.json`.
+Query válida substitui só seu período, preserva o outro e persiste como antes.
+Reload reaplica o link; para conservar edições abra `/` ou gere novo link.
+Parâmetros irrelevantes e fragmento são ignorados/preservados pelo gerador.
 
-**Adicionar vinte minutos de brincadeira** depois de trocar de roupa:
+CRA serve os caminhos pelo fallback SPA no `npm start`. Em hospedagem estática,
+configure rewrite de caminhos para `/index.html` com status 200, preservando
+assets reais. Não há servidor de produção neste repositório; a configuração
+desse rewrite depende da hospedagem. Refresh direto é validado no servidor CRA.
 
-[Com brincadeira](http://localhost:3000/?rotina=1%7Cn%7Cba%3A15%2Cja%3A20%2Cro%3A10%2Cbr%3A20)
+## Exemplos abríveis
 
-**Dez minutos de livro antes de dormir** (dormir com 5 minutos):
+[Simples noite](http://localhost:3000/?rotina=1.n.ba-15.ja-20.ro-10)
 
-[Livro antes de dormir](http://localhost:3000/?rotina=1%7Cn%7Cba%3A15%2Cja%3A20%2Cro%3A10%2Cbr%3A20%2Cli%3A10%2Cdo%3A5)
+[Composta e final](http://localhost:3000/?rotina=1.n.ba-20.ja-25.ma-de-5.1930)
 
-**Manhã**, café e dentes:
+[Manhã repetida](http://localhost:3000/?rotina=1.m.xi-5.ro-10.xi-5.0720)
 
-[Café e dentes](http://localhost:3000/?rotina=1%7Cm%7Ccf%3A20%2Cde%3A5)
+[Custom simples](http://localhost:3000/?rotina=1.n.~musica-10)
 
-**Nome personalizado com acentos e delimitadores**, “Abraço, água: sim”:
+[Custom “Água. música-quente”](http://localhost:3000/?rotina=1.n.~%25C3%2581gua%252E%2520m%25C3%25BAsica%252Dquente-5)
 
-[Nome personalizado](http://localhost:3000/?rotina=1%7Cn%7C%7EAbra%25C3%25A7o%252C%2520%25C3%25A1gua%253A%2520sim%3A5)
-
-JavaScript padrão, sem bibliotecas:
+JavaScript completo (base pode ter query e fragmento):
 
 ```js
-const url = new URL('http://localhost:3000/'); // substitua pela base desejada
-url.searchParams.set('rotina', '1|n|ba:15,ja:20,ro:10');
-console.log(url.href);
-// Modificar o mesmo link: preservar query/fragmento, substituir só rotina.
-url.searchParams.set('rotina', '1|n|ba:15,ja:20,ro:10,br:20,li:10,do:5');
-// Nome personalizado (não encode manualmente a camada externa):
-url.searchParams.set('rotina', '1|n|~' + encodeURIComponent('Abraço, água: sim') + ':5');
+const url = new URL('http://localhost:3000/');
+function setRoutine(value) {
+  url.searchParams.delete('rotina');
+  const other = url.searchParams.toString();
+  url.search = (other ? other + '&' : '') + 'rotina=' + encodeURIComponent(value);
+  console.log(url.href);
+}
+setRoutine('1.n.ba-20.ja-25.ma-de-5.1930');
+const name = encodeURIComponent('Água. música-quente').replace(/\./g, '%2E').replace(/-/g, '%2D');
+setRoutine('1.n.~' + name + '-5');
 ```
 
-Python padrão (mesmo formato; `quote` interno com `safe=''`):
+Python completo equivalente, sem encoding desnecessário de delimitadores:
 
 ```python
 from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode, quote
 base = 'http://localhost:3000/'
 u = urlsplit(base)
 params = [(k, v) for k, v in parse_qsl(u.query, keep_blank_values=True) if k != 'rotina']
-params.append(('rotina', '1|n|ba:15,ja:20,ro:10'))
-link = urlunsplit((u.scheme, u.netloc, u.path, urlencode(params), u.fragment))
-print(link)
-# Nome personalizado: substituir rotina e recalcular o link completo.
-custom = '~' + quote('Abraço, água: sim', safe='') + ':5'
-params = [(k, v) for k, v in params if k != 'rotina']
-params.append(('rotina', '1|n|' + custom))
-link = urlunsplit((u.scheme, u.netloc, u.path, urlencode(params), u.fragment))
-print(link)
+def link(value):
+    query = urlencode(params)
+    query += ('&' if query else '') + 'rotina=' + quote(value, safe=".-~!*'()_")
+    return urlunsplit((u.scheme, u.netloc, u.path, query, u.fragment))
+print(link('1.n.ba-20.ja-25.ma-de-5.1930'))
+name = quote('Água. música-quente', safe="~!*'()_").replace('.', '%2E').replace('-', '%2D')
+print(link('1.n.~' + name + '-5'))
 ```
 
-No código do projeto, `serializeRoutineUrl(baseUrl, period, tasks)` em
-`app/src/lib/routineUrl.js` recebe `morning`/`evening` e tarefas `{name, minutes}`,
-preserva outros parâmetros/fragmento, valida e retorna URL determinística.
-O parser devolve status `absent`, `invalid` ou `valid` (período e rotina).
+API: `serializeRoutineUrl(baseUrl, period, tasks, endTime?)`, período
+`morning`/`evening`, tarefas `{name, minutes, catalogIds?}`, horário `HH:MM`.
+Parser `parseRoutineUrl(search, pathname='/')` retorna `absent`, `invalid` ou
+`valid`, com `source` query/path. `catalogIds` preserva combinações e repetições
+na serialização e nos editores. Ao mudar o nome, o gerador passa a usar custom
+para preservar a edição. Ícones/cores editados não são transportados por links.
+Para repetir ontem, guarde e reabra a URL: não há histórico global por data.
 
-**Gerar a mesma rotina novamente / repetir ontem:** guarde a URL anterior e
-reutilize-a literalmente. Se quiser reconstruí-la, guarde também as tarefas,
-ordem, durações e período. O agente precisa guardar a URL anterior para repetir
-ontem; **não há histórico global automático**, nem recuperação por data. Por
-exemplo, para repetir o primeiro exemplo, abra novamente:
+Compatibilidade isolada: links antigos `1|n|ba:15,ja:20` continuam aceitos,
+com nomes customizados escapados internamente e query escapada externamente.
+Não aceitam combinações nem horário opcional. Toda serialização nova usa pontos
+e hífens. Encoding inválido, versão/ID desconhecidos, duplicação de parâmetro,
+limites excedidos ou tarefa inválida rejeitam toda a lista, nunca importam parcial.
 
-[Repetir banho, jantar e roupa](http://localhost:3000/?rotina=1%7Cn%7Cba%3A15%2Cja%3A20%2Cro%3A10)
-
-## Validação e erros
-
-Versão/período desconhecido, ID desconhecido, separadores incorretos, encoding
-percentual/UTF-8 malformado, duração inválida, lista vazia ou limites excedidos
-invalidam **toda** a importação. Não se aplica uma lista parcial. Duplicação do
-parâmetro `rotina` é rejeitada; repetição de tarefa na lista é permitida.
-
-A tela mostra “Não foi possível carregar a rotina do link. Confira o formato;
-sua rotina salva ou padrão continua disponível.” e usa configuração local ou
-padrão. A carga inválida não escreve no localStorage, nem apaga a outra rotina.
-Salvar uma edição explicitamente depois do fallback continua permitido.
-Parâmetros irrelevantes, inclusive malformados, são ignorados.
-Nomes são texto renderizado pelo React, sem `eval` ou injeção de HTML.
-
-Para verificar exemplos, parser, catálogo, persistência e interface em DOM, use
-os comandos abaixo. Os testes executam o bloco Python acima e passam as URLs geradas ao parser real;
-por isso, `python3` precisa estar disponível no PATH.
+Os testes executam TODOS os links, os blocos JS/Python e usam o parser real.
 
 ```bash
 cd app
+npm ci
 CI=true npm test -- --watchAll=false --runInBand
 npm run build
 ```
