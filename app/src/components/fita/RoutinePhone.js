@@ -1,7 +1,13 @@
 import React, { useEffect, useRef } from 'react';
 import { C, FREDOKA, NUNITO, agoraColors, doneOverlay, hatch, statusStyle } from './theme';
+import { layoutByMinute, positionOnTrack } from '../../lib/trackLayout';
 
 const PX_PER_MIN = 11;
+// Touch target of the completion dot; rows never get shorter than it, so short
+// (1–2 min) tasks still show the whole dot. The NOW line follows the same geometry.
+export const DOT_HIT = 44;
+const DOT = 26;
+export const MIN_ROW_H = DOT_HIT;
 const FOLLOW_AT = 0.42; // keep NOW ~40% down the visible track
 const MANUAL_HOLD_MS = 10000; // manual scroll pauses auto-follow for this long
 
@@ -22,17 +28,19 @@ function IconToggle({ on, onClick, label, children }) {
   );
 }
 
-function TaskRow({ t, i, count, v, onJump, onToggleDone }) {
+function TaskRow({ t, i, count, v, height, onJump, onToggleDone }) {
   const cur = t.isCurrent && !v.overtime;
   const radius = i === 0 ? '20px 20px 0 0' : i === count - 1 ? '0 0 20px 20px' : '0';
   // Row and completion dot are sibling buttons, so tapping the dot never starts the task.
   return (
     <div
+      data-testid="phone-row"
       style={{
-        position: 'relative', overflow: 'hidden', flex: 'none', height: t.minutes * PX_PER_MIN, width: '100%',
+        position: 'relative', overflow: 'hidden', flex: 'none', height, width: '100%',
         background: t.color, borderRadius: radius,
         boxShadow: [`inset 0 -2px 0 ${C.bg}`, t.done && doneOverlay(0.68)].filter(Boolean).join(','),
-        ...(cur ? { outline: '4px solid #fff', outlineOffset: -4, zIndex: 1 } : {}),
+        // No zIndex here: it would trap the dot under the NOW line.
+        ...(cur ? { outline: '4px solid #fff', outlineOffset: -4 } : {}),
       }}
     >
       <button
@@ -41,7 +49,7 @@ function TaskRow({ t, i, count, v, onJump, onToggleDone }) {
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', background: 'transparent', border: 0, padding: 0, cursor: 'pointer', font: 'inherit', textAlign: 'left' }}
       >
         <div style={{ position: 'absolute', inset: '0 0 auto 0', height: `${t.isCurrent ? v.currentPct : 0}%`, background: 'rgba(0,0,0,.2)' }} />
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 9, height: '100%', padding: '0 46px 0 12px', boxSizing: 'border-box' }}>
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 9, height: '100%', padding: `0 ${DOT_HIT + 8}px 0 12px`, boxSizing: 'border-box' }}>
           <div style={{ fontSize: cur ? 26 : 20, lineHeight: 1, flex: 'none', animation: cur ? 'bob 1.8s ease-in-out infinite' : 'none', opacity: t.done ? 0.55 : 1 }}>{t.icon}</div>
           <div style={{ flex: 1, minWidth: 0, font: `${cur ? 900 : 800} ${cur ? 18 : 16}px ${NUNITO}`, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: t.done ? C.doneInk : '#fff', textShadow: t.done ? 'none' : '0 1px 3px rgba(0,0,0,.35)' }}>{t.name}</div>
           <div style={{ font: `700 13px ${NUNITO}`, whiteSpace: 'nowrap', color: t.done ? 'rgba(58,48,38,.8)' : 'rgba(255,255,255,.9)' }}>{t.shownMinutes} min</div>
@@ -52,14 +60,22 @@ function TaskRow({ t, i, count, v, onJump, onToggleDone }) {
         aria-pressed={t.done}
         aria-label={t.done ? `${t.name}: feita (desmarcar)` : `Marcar ${t.name} como feita`}
         style={{
-          position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 26, height: 26, borderRadius: 999,
-          padding: 0, cursor: 'pointer', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', font: `900 15px ${NUNITO}`,
-          ...(t.done
-            ? { background: '#fff', color: C.check, border: 0 }
-            : { background: 'rgba(255,255,255,.18)', color: 'transparent', border: '3px solid rgba(255,255,255,.92)' }),
+          // Transparent DOT_HIT square around the visible dot; zIndex keeps it over the NOW line (3).
+          position: 'absolute', zIndex: 4, right: 1, top: '50%', transform: 'translateY(-50%)', width: DOT_HIT, height: DOT_HIT,
+          padding: 0, cursor: 'pointer', background: 'transparent', border: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}
       >
-        ✓
+        <span
+          aria-hidden="true"
+          style={{
+            width: DOT, height: DOT, borderRadius: 999, boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', font: `900 15px ${NUNITO}`,
+            ...(t.done
+              ? { background: '#fff', color: C.check, border: 0 }
+              : { background: 'rgba(255,255,255,.18)', color: 'transparent', border: '3px solid rgba(255,255,255,.92)' }),
+          }}
+        >
+          ✓
+        </span>
       </button>
     </div>
   );
@@ -68,7 +84,8 @@ function TaskRow({ t, i, count, v, onJump, onToggleDone }) {
 export default function RoutinePhone({ v, closing, clock, isMorning, onPick, onJump, onToggleDone, onExtend, onReset, badge }) {
   const ot = v.overtime;
   const agora = agoraColors({ urgent: v.urgent, overtime: ot, color: v.current.color });
-  const nowY = v.elapsedOnTrack * PX_PER_MIN;
+  const layout = layoutByMinute(v.blocks.map((b) => b.minutes), { perMin: PX_PER_MIN, minSize: MIN_ROW_H });
+  const nowY = positionOnTrack(layout, v.blocks, v.elapsedOnTrack);
 
   const trackRef = useRef(null);
   const manualUntil = useRef(0);
@@ -130,12 +147,12 @@ export default function RoutinePhone({ v, closing, clock, isMorning, onPick, onJ
       {/* Scrolling vertical ribbon + pinned closing zone */}
       <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
         <div ref={trackRef} onScroll={onScroll} className="no-scrollbar" style={{ position: 'relative', flex: 1, minHeight: 0, borderRadius: 20, background: C.track, overflowY: 'auto', overflowX: 'hidden' }}>
-          <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: v.total * PX_PER_MIN }}>
+          <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: layout.total }}>
             {v.blocks.map((t, i) => (
-              <TaskRow key={t.id ?? i} t={t} i={i} count={v.blocks.length} v={v} onJump={onJump} onToggleDone={onToggleDone} />
+              <TaskRow key={t.id ?? i} t={t} i={i} count={v.blocks.length} v={v} height={layout.sizes[i]} onJump={onJump} onToggleDone={onToggleDone} />
             ))}
             {!ot && (
-              <div style={{ position: 'absolute', zIndex: 3, left: 0, right: 0, top: nowY, height: 5, transform: 'translateY(-2px)', background: C.ink, borderRadius: 999, boxShadow: '0 0 0 2px rgba(255,246,233,.85)', pointerEvents: 'none' }} />
+              <div data-testid="phone-now-line" style={{ position: 'absolute', zIndex: 3, left: 0, right: 0, top: nowY, height: 5, transform: 'translateY(-2px)', background: C.ink, borderRadius: 999, boxShadow: '0 0 0 2px rgba(255,246,233,.85)', pointerEvents: 'none' }} />
             )}
           </div>
         </div>

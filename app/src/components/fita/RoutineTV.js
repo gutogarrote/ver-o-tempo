@@ -1,8 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { C, FREDOKA, NUNITO, agoraColors, doneOverlay, hatch, statusStyle } from './theme';
+import { layoutByLength, positionOnTrack } from '../../lib/trackLayout';
 
 const STAGE_W = 1440;
 const STAGE_H = 810;
+const PAD_X = 30;
+const CLOSE_W = 148;
+const RIBBON_GAP = 5;
+const RIBBON_H = 300;
+// The stage never changes size (it is scaled as a whole), so the ribbon width is fixed.
+export const RIBBON_W = STAGE_W - 2 * PAD_X - CLOSE_W - RIBBON_GAP;
+export const DOT = 40;
+const DOT_INSET = 14;
+// Narrowest block: room for the completion dot plus a margin on each side.
+export const MIN_BLOCK_W = DOT + 16;
 
 // Scale the fixed 1440×810 stage to fit any TV / window, letterboxed.
 function useStageScale() {
@@ -16,8 +27,11 @@ function useStageScale() {
   return scale;
 }
 
+// The AGORA flag lives at the top of the ribbon; completion dots live at the bottom of the
+// blocks (DOT_INSET from the bottom edge), so the two never meet wherever NOW is.
+export const FLAG_TOP = 10;
 const flag = {
-  position: 'absolute', top: 10, transform: 'translateX(-50%)', background: C.ink, color: '#fff',
+  position: 'absolute', top: FLAG_TOP, transform: 'translateX(-50%)', background: C.ink, color: '#fff',
   padding: '7px 16px', borderRadius: 999, font: `900 20px ${NUNITO}`, whiteSpace: 'nowrap',
   boxShadow: `0 0 0 4px ${C.bg}`, zIndex: 2,
 };
@@ -39,17 +53,18 @@ function Pill({ on, onClick, children }) {
   );
 }
 
-function TaskBlock({ t, i, count, v, span, onJump, onToggleDone }) {
+function TaskBlock({ t, i, count, v, span, width, onJump, onToggleDone }) {
   const pct = (t.minutes / span) * 100;
   const ring = t.isCurrent && !v.overtime;
   const radius = i === 0 ? '30px 0 0 30px' : i === count - 1 ? '0 30px 30px 0' : '0';
-  const dot = pct < 6 ? 30 : 40;
+  const narrow = width < 100;
   // The block and its completion dot are sibling buttons (no nested buttons), so tapping
   // the dot never starts the task.
   return (
     <div
+      data-testid="tv-block"
       style={{
-        position: 'relative', overflow: 'hidden', flex: 'none', width: `${(t.minutes / v.total) * 100}%`,
+        position: 'relative', overflow: 'hidden', flex: 'none', width,
         background: t.color, borderRadius: radius,
         boxShadow: [`inset -3px 0 0 ${C.bg}`, t.done && doneOverlay(0.62), ring && 'inset 0 0 0 7px #fff'].filter(Boolean).join(','),
         transition: 'box-shadow .3s',
@@ -74,9 +89,10 @@ function TaskBlock({ t, i, count, v, span, onJump, onToggleDone }) {
         aria-label={t.done ? `${t.name}: feita (desmarcar)` : `Marcar ${t.name} como feita`}
         title={t.done ? 'Feita' : 'Marcar como feita'}
         style={{
-          position: 'absolute', top: 12, right: pct < 6 ? '50%' : 12, transform: pct < 6 ? 'translateX(50%)' : 'none',
-          width: dot, height: dot, borderRadius: 999, padding: 0, cursor: 'pointer', boxSizing: 'border-box',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', font: `900 ${dot * 0.6}px ${NUNITO}`,
+          // zIndex: painted over the NOW line, which may cross the dot.
+          position: 'absolute', zIndex: 3, bottom: DOT_INSET, right: narrow ? '50%' : DOT_INSET, transform: narrow ? 'translateX(50%)' : 'none',
+          width: DOT, height: DOT, borderRadius: 999, padding: 0, cursor: 'pointer', boxSizing: 'border-box',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', font: `900 ${DOT * 0.6}px ${NUNITO}`,
           ...(t.done
             ? { background: '#fff', color: C.check, border: 0, boxShadow: '0 3px 0 rgba(0,0,0,.15)' }
             : { background: 'rgba(255,255,255,.18)', color: 'transparent', border: '4px solid rgba(255,255,255,.92)' }),
@@ -93,12 +109,13 @@ export default function RoutineTV({ v, closing, bufferMin, clock, startLabel, en
   const ot = v.overtime;
   const span = v.total + bufferMin;
   const agora = agoraColors({ urgent: v.urgent, overtime: ot, color: v.current.color });
-  const nowPct = v.nowFrac * 100;
+  const layout = layoutByLength(v.blocks.map((b) => b.minutes), { length: RIBBON_W, minSize: MIN_BLOCK_W });
+  const nowX = positionOnTrack(layout, v.blocks, v.elapsedOnTrack);
 
   return (
     <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ width: STAGE_W * scale, height: STAGE_H * scale, flex: 'none' }}>
-        <div style={{ width: STAGE_W, height: STAGE_H, transform: `scale(${scale})`, transformOrigin: '0 0', boxSizing: 'border-box', background: C.bg, color: C.ink, fontFamily: NUNITO, display: 'flex', flexDirection: 'column', padding: '26px 30px', gap: 16 }}>
+        <div style={{ width: STAGE_W, height: STAGE_H, transform: `scale(${scale})`, transformOrigin: '0 0', boxSizing: 'border-box', background: C.bg, color: C.ink, fontFamily: NUNITO, display: 'flex', flexDirection: 'column', padding: `26px ${PAD_X}px`, gap: 16 }}>
 
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
@@ -121,19 +138,19 @@ export default function RoutineTV({ v, closing, bufferMin, clock, startLabel, en
           </div>
 
           {/* Ribbon + closing zone */}
-          <div style={{ display: 'flex', alignItems: 'stretch', gap: 5, height: 300 }}>
-            <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'stretch', gap: RIBBON_GAP, height: RIBBON_H }}>
+            <div style={{ position: 'relative', flex: 'none', width: RIBBON_W }}>
               <div style={{ display: 'flex', height: '100%', width: '100%', borderRadius: 30, background: C.track, boxShadow: '0 8px 0 rgba(0,0,0,.07)' }}>
                 {v.blocks.map((t, i) => (
-                  <TaskBlock key={t.id ?? i} t={t} i={i} count={v.blocks.length} v={v} span={span} onJump={onJump} onToggleDone={onToggleDone} />
+                  <TaskBlock key={t.id ?? i} t={t} i={i} count={v.blocks.length} v={v} span={span} width={layout.sizes[i]} onJump={onJump} onToggleDone={onToggleDone} />
                 ))}
               </div>
-              <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${nowPct}%`, width: 6, background: C.ink, transform: 'translateX(-3px)', boxShadow: '0 0 0 2px rgba(255,255,255,.7)', pointerEvents: 'none' }} />
-              {!ot && <div style={{ ...flag, left: `${Math.min(Math.max(nowPct, 7), 93)}%`, pointerEvents: 'none' }}>AGORA {clock}</div>}
+              <div style={{ position: 'absolute', top: 0, bottom: 0, left: nowX, width: 6, background: C.ink, transform: 'translateX(-3px)', boxShadow: '0 0 0 2px rgba(255,255,255,.7)', pointerEvents: 'none' }} data-testid="tv-now-line" />
+              {!ot && <div data-testid="tv-now-flag" style={{ ...flag, left: Math.min(Math.max(nowX, RIBBON_W * 0.07), RIBBON_W * 0.93), pointerEvents: 'none' }}>AGORA {clock}</div>}
             </div>
 
             <div style={{
-              position: 'relative', flex: 'none', width: 148, boxSizing: 'border-box', borderRadius: 30, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5,
+              position: 'relative', flex: 'none', width: CLOSE_W, boxSizing: 'border-box', borderRadius: 30, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5,
               padding: ot ? '52px 8px 12px' : '12px 8px', textAlign: 'center', transition: 'background .4s',
               background: ot ? hatch(closing.color, 16) : 'transparent',
               border: `4px dashed ${ot ? '#fff' : 'rgba(154,134,107,.4)'}`,
