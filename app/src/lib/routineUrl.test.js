@@ -150,3 +150,13 @@ test('clean format validates limits, all catalog IDs and hostile custom text', (
   expect(result.routine.tasks[0].name).toBe(name);
   ['24:00', '12:60', '7:20', '', '0720'].forEach(time => expect(() => serializeRoutineUrl('http://localhost:3000/', 'morning', [{ name: 'Acordar', minutes: 5 }], time)).toThrow());
 });
+
+test.each(['0900', '2045'])('serializer clears /%s and roundtrips combined/custom configuration', time => {
+  const tasks = [{ name: 'Lavar as mãos + Escovar os dentes', minutes: 7, catalogIds: ['ma', 'de'] }, { name: 'Água. música-quente + 50%', minutes: 10 }];
+  const url = new URL(serializeRoutineUrl('http://localhost:3001/' + time + '?utm=abc&tag=1&tag=2#familia', 'evening', tasks, '20:40'));
+  expect(url.pathname).toBe('/');
+  expect(url.searchParams.getAll('tag')).toEqual(['1', '2']);
+  expect(url.searchParams.get('utm')).toBe('abc');
+  expect(url.hash).toBe('#familia');
+  expect(parseRoutineUrl(url.search, url.pathname)).toMatchObject({ status: 'valid', routine: { endTime: '20:40', tasks } });
+});

@@ -78,7 +78,7 @@ Para a tela da criança ficar limpa, os ajustes ficam escondidos atrás do botã
 - **⚙️ Rotinas:** o editor completo, com todas as rotinas e o horário em que cada uma deve terminar.
 - **Horário limite:** a hora em que a rotina precisa acabar (por exemplo, a hora de sair para a escola). O app calcula de trás para frente quando cada tarefa deve começar.
 
-As mudanças ficam guardadas **no próprio aparelho**, no navegador.
+As mudanças ficam guardadas **no próprio aparelho**, no navegador. Ao salvar no editor, o link da barra é atualizado sem recarregar: copie e guarde esse novo endereço para reabrir ou compartilhar tarefas, ordem, durações, nomes e horário final. No menu, use **Salvar horário** para incluir o prazo no link.
 
 ### Configuração por URL
 

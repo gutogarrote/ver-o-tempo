@@ -85,7 +85,30 @@ A carga de link inválido ignora dados locais e não grava nem apaga storage.
 Se o fetch falhar, uma cópia embarcada do padrão garante o fallback seguro;
 o teste de sincronização exige igualdade com `app/public/routines.json`.
 Query válida substitui só seu período, preserva o outro e persiste como antes.
-Reload reaplica o link; para conservar edições abra `/` ou gere novo link.
+Ao clicar **Save Routine** ou **Salvar Alterações**, a barra recebe o link da
+rotina selecionada via `history.replaceState`, sem reload nem entrada extra no
+histórico. Copie a URL da barra **depois de salvar** e guarde ou compartilhe esse
+novo link. Reload reproduz ordem, minutos, nomes das tarefas, combinações e
+horário final salvos. O editor completo grava todas as rotinas no aparelho;
+o link representa somente o período selecionado na tela antes de abrir o editor.
+No menu, **Salvar horário** persiste o horário final e atualiza a configuração
+completa do link. Alterar o campo sem salvar, pular tarefas e recomeçar não
+reescrevem a URL. A URL é importada uma vez por montagem, não a cada render.
+
+Ao salvar a rotina aberta por `/0900` ou `/2045`, o pathname passa a `/` e a
+query contém tarefas completas e final `.0900` ou `.2045`. Assim o atalho não
+pode reaplicar o padrão depois da edição. Outros parâmetros (inclusive repetidos)
+e o fragmento são preservados; salvar uma rotina mantém as outras rotinas locais
+e outras chaves do storage.
+
+Exemplo: abra `http://localhost:3001/?rotina=1.n.ma-5.co-5.ba-20.ja-25.ma-de-5.2040`,
+mova Jantar para segundo, mude Fazer cocô para 10 minutos e salve. Copie
+`http://localhost:3001/?rotina=1.n.ma-5.ja-25.co-10.ba-20.ma-de-5.2040`.
+O final continua **20:40**, inclusive após recarregar.
+
+Edições locais fora dos limites do formato continuam salvas no aparelho, com
+aviso de que o link não foi atualizado. Nesse caso a URL anterior não representa
+a edição; ajuste os valores e salve novamente antes de copiar.
 Parâmetros irrelevantes e fragmento são ignorados/preservados pelo gerador.
 
 CRA serve os caminhos pelo fallback SPA no `npm start`. Em hospedagem estática,

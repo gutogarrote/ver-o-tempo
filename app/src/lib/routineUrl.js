@@ -89,6 +89,8 @@ export function serializeRoutineUrl(baseUrl, period, tasks, endTime) {
     return `${id || '~' + custom}-${task.minutes}`;
   });
   const url = new URL(baseUrl);
+  // A saved configuration replaces the time-only shortcut.
+  if (/^\/\d{4}$/.test(url.pathname)) url.pathname = '/';
   let suffix = '';
   if (endTime !== undefined) {
     if (!/^\d{2}:\d{2}$/.test(endTime)) throw new Error(URL_ERROR);

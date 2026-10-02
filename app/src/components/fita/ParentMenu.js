@@ -3,7 +3,7 @@ import { C, NUNITO } from './theme';
 
 // The ✨ badge doubles as a discreet parents' menu (edit routines, deadline),
 // keeping the kid-facing screen identical to the design.
-export default function ParentMenu({ size, radius, fontSize, shadow, onEdit, onEditDefaults, deadlineStr, setDeadlineStr, useDeadline, setUseDeadline }) {
+export default function ParentMenu({ size, radius, fontSize, shadow, onEdit, onEditDefaults, deadlineStr, setDeadlineStr, useDeadline, setUseDeadline, onSaveEndTime }) {
   const [open, setOpen] = useState(false);
   const item = { display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', border: 0, borderRadius: 12, background: 'transparent', cursor: 'pointer', font: `800 16px ${NUNITO}`, color: C.ink, whiteSpace: 'nowrap' };
 
@@ -27,12 +27,14 @@ export default function ParentMenu({ size, radius, fontSize, shadow, onEdit, onE
               Horário limite
             </label>
             <input
+              aria-label="Horário final"
               type="time"
               value={deadlineStr}
               onChange={(e) => setDeadlineStr(e.target.value)}
               style={{ border: `2px solid ${C.toggleBg}`, borderRadius: 10, padding: '4px 6px', font: `700 15px ${NUNITO}`, color: C.ink }}
             />
           </div>
+          <button style={item} onClick={onSaveEndTime}>Salvar horário</button>
         </div>
       )}
     </div>

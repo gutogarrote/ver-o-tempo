@@ -121,3 +121,14 @@ Arquitetura atual: App carrega dados e aplica URL uma vez na montagem; Home
 seleciona período, controla prazo/modo e edição; `timeline.js` calcula tempo e
 `routineView.js` fornece o modelo compartilhado por RoutinePhone/RoutineTV.
 Não houve mudança no cálculo de tempo ou na janela de atraso de 180 minutos.
+
+## Salvar edição no link (2026-10-02)
+
+Home usa `serializeRoutineUrl` e `history.replaceState` nos dois editores e em
+Salvar horário do menu. URL importada uma vez por App; atalhos de horário viram
+query completa em `/`. Outros parâmetros, fragmento e estado do histórico são
+preservados. Salvar uma rotina mantém os outros períodos e dias do storage.
+Combinações intactas mantêm IDs; nomes editados recebem escaping customizado.
+Formato não representável gera aviso e mantém persistência local existente.
+Cálculo de tempo e marca-feito não foram modificados. Instruções para copiar
+o novo link após salvar em [docs/url-rotina.md](docs/url-rotina.md).

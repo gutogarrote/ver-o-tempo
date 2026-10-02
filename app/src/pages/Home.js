@@ -5,6 +5,7 @@ import ParentMenu from '../components/fita/ParentMenu';
 import DefaultRoutineEditor from '../components/DefaultRoutineEditor';
 import RoutineEditor from '../components/RoutineEditor';
 import { computeElapsed, hhmm, sumMinutes, toToday } from '../lib/timeline';
+import { serializeRoutineUrl } from '../lib/routineUrl';
 import { DEFAULT_BUFFER_MIN, buildRoutineView, closingFor } from '../lib/routineView';
 
 // Phones and portrait screens get the vertical ribbon (2a); landscape gets the TV stage (1a).
@@ -84,26 +85,64 @@ export default function Home({ routines, setRoutines, currentTime, initialRoutin
     }
   }
 
-  function saveDefaults(updated) {
+  const [saveError, setSaveError] = useState('');
+
+  function persistRoutine(updated) {
+    try {
+      const saved = updated?.[todayKey]?.[routineId];
+      const url = serializeRoutineUrl(window.location.href, routineId, saved?.tasks, saved?.endTime || '23:59');
+      window.history.replaceState(window.history.state, '', url);
+      setSaveError('');
+    } catch (_) {
+      setSaveError('Alterações salvas no aparelho, mas não foi possível atualizar o link. Confira nomes, tarefas, durações e horário nos limites do formato de URL.');
+    }
     try {
       localStorage.setItem('routines', JSON.stringify(updated));
     } catch (_) {}
     setRoutines(updated);
+  }
+
+  function saveDefaults(updated) {
+    // Keep local routines that were not changed in the full editor, including shortcut loads.
+    let next = updated;
+    try {
+      const stored = JSON.parse(localStorage.getItem('routines'));
+      if (stored && typeof stored === 'object' && !Array.isArray(stored)) {
+        next = { ...stored };
+        for (const day of new Set([...Object.keys(routines), ...Object.keys(updated)])) {
+          next[day] = { ...stored[day] };
+          for (const period of new Set([...Object.keys(routines[day] || {}), ...Object.keys(updated[day] || {})])) {
+            const saved = updated[day]?.[period];
+            if (JSON.stringify(saved) !== JSON.stringify(routines[day]?.[period]) || (day === todayKey && period === routineId)) {
+              if (saved) next[day][period] = saved;
+              else delete next[day][period];
+            } else if (!next[day][period]) next[day][period] = saved;
+          }
+          if (!updated[day]) delete next[day];
+        }
+      }
+    } catch (_) {}
+    persistRoutine(next);
     setIsEditingDefaults(false);
   }
 
   function saveCurrent(updatedRoutine) {
+    // Path shortcuts display defaults, but saving one period must preserve other local routines.
+    let savedRoutines;
+    try {
+      const stored = JSON.parse(localStorage.getItem('routines'));
+      if (stored && typeof stored === 'object' && !Array.isArray(stored)) savedRoutines = stored;
+    } catch (_) {}
     const next = {
       ...routines,
+      ...savedRoutines,
       [todayKey]: {
         ...(routines?.[todayKey] || {}),
+        ...(savedRoutines?.[todayKey] || {}),
         [routineId]: updatedRoutine,
       },
     };
-    try {
-      localStorage.setItem('routines', JSON.stringify(next));
-    } catch (_) {}
-    setRoutines(next);
+    persistRoutine(next);
     setIsEditingCurrent(false);
   }
 
@@ -144,6 +183,7 @@ export default function Home({ routines, setRoutines, currentTime, initialRoutin
       onEditDefaults={() => setIsEditingDefaults(true)}
       deadlineStr={deadlineStr}
       setDeadlineStr={setDeadlineStr}
+      onSaveEndTime={() => saveCurrent({ ...routine, endTime: deadlineStr })}
       useDeadline={useDeadline}
       setUseDeadline={setUseDeadline}
     />
@@ -160,7 +200,10 @@ export default function Home({ routines, setRoutines, currentTime, initialRoutin
     badge,
   };
 
-  return isPhone
-    ? <RoutinePhone {...shared} />
-    : <RoutineTV {...shared} bufferMin={bufferMin} startLabel={hhmm(startsAt)} endLabel={hhmm(endsAt)} />;
+  return <>
+    {saveError && <div role="alert" className="p-4">{saveError}</div>}
+    {isPhone
+      ? <RoutinePhone {...shared} />
+      : <RoutineTV {...shared} bufferMin={bufferMin} startLabel={hhmm(startsAt)} endLabel={hhmm(endsAt)} />}
+  </>;
 }
