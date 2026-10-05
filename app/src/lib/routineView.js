@@ -50,9 +50,13 @@ export function buildRoutineView({ tasks, elapsed, startMin, closing }) {
   });
 }
 
-// View for a session plan (see lib/schedule). Block sizes stay proportional to the
-// ORIGINAL minutes (layout never jumps); times, countdowns and progress follow the plan.
-// label(ms) formats a plan timestamp as "hh:mm".
+// View for a session plan (see lib/schedule). Each block carries three quantities:
+//   minutes      — original configured minutes (also `start`, offset in original minutes);
+//   planMinutes  — duration allocated in the current plan (grows/shrinks as tasks are
+//                  marked done); `planStart` is its offset from the plan start, in minutes;
+//   elapsed      — real progress, see `planElapsed` (minutes since the plan start).
+// Block sizes on screen follow planMinutes/planStart, so the NOW line (planElapsed) moves
+// on the real geometry. label(ms) formats a plan timestamp as "hh:mm".
 export function buildPlanView({ tasks, plan, nowMs, closing, label }) {
   const total = tasks.reduce((s, t) => s + minutesOf(t), 0);
   const n = tasks.length;
@@ -75,6 +79,7 @@ export function buildPlanView({ tasks, plan, nowMs, closing, label }) {
       ...task, minutes, start, done, isCurrent,
       state: done ? 'done' : isCurrent ? 'current' : 'future',
       startMs: seg.start, endMs: seg.end, planMinutes,
+      planStart: (seg.start - plan.segs[0].start) / MIN_MS,
       shownMinutes: done ? minutes : Math.round(planMinutes),
     };
   });
@@ -101,6 +106,8 @@ export function buildPlanView({ tasks, plan, nowMs, closing, label }) {
     // Now position along the task track, 0..1 (buffer excluded)
     nowFrac,
     elapsedOnTrack: nowFrac * total,
+    // Real progress along the plan, in minutes since its start (0 before the start).
+    planElapsed: n ? (t - plan.segs[0].start) / MIN_MS : 0,
     startMs: n ? plan.segs[0].start : plan.endMs,
     endMs: plan.endMs,
     countdown: overtime ? '+' + mmss(over) : mmss(remaining),

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import Home from '../../pages/Home';
 import { DOT_HIT, MIN_ROW_H } from './RoutinePhone';
-import { DOT, FLAG_TOP, MIN_BLOCK_W, RIBBON_W } from './RoutineTV';
+import { DOT, FLAG_TOP, MIN_BLOCK_W, RIBBON_W, WINDOW_MIN } from './RoutineTV';
 
 // Regression for the marca-feito audit: short tasks must keep a whole, tappable dot,
 // the TV AGORA flag must never sit on a dot, and NOW must stay aligned with the blocks.
@@ -73,16 +73,18 @@ describe('phone', () => {
 });
 
 describe('TV', () => {
-  test('short blocks keep the minimum width and the ribbon width is unchanged', () => {
+  test('short blocks keep the minimum width; the 53-min routine overflows the 40-min ribbon', () => {
     renderAt(at(19, 30), false);
     const widths = screen.getAllByTestId('tv-block').map((b) => px(b.style.width));
+    const perMin = RIBBON_W / WINDOW_MIN;
     expect(widths[1]).toBe(MIN_BLOCK_W);
-    expect(widths[2]).toBe(MIN_BLOCK_W);
-    expect(widths.reduce((a, b) => a + b, 0)).toBeCloseTo(RIBBON_W, 6);
+    expect(widths[2]).toBe(Math.max(MIN_BLOCK_W, 2 * perMin));
+    expect(widths[0]).toBeCloseTo(40 * perMin, 6);
     expect(widths[0] / widths[3]).toBeCloseTo(4, 6);
+    expect(widths.reduce((a, b) => a + b, 0)).toBeGreaterThan(RIBBON_W);
   });
 
-  test('dots sit at the bottom, far below the AGORA flag, and above the NOW line', () => {
+  test('dots sit at the bottom, far below the time label, and above the NOW line', () => {
     renderAt(at(19, 47, 30), false);
     const flag = screen.getByTestId('tv-now-flag');
     expect(px(flag.style.top)).toBe(FLAG_TOP);

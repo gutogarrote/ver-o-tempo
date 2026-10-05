@@ -5,7 +5,7 @@ import ParentMenu from '../components/fita/ParentMenu';
 import DefaultRoutineEditor from '../components/DefaultRoutineEditor';
 import RoutineEditor from '../components/RoutineEditor';
 import { OVERTIME_WINDOW_MIN, computeElapsed, hhmm, sumMinutes, toToday } from '../lib/timeline';
-import { DEFAULT_BUFFER_MIN, buildPlanView, closingFor } from '../lib/routineView';
+import { buildPlanView, closingFor } from '../lib/routineView';
 import { MIN_MS, defaultPlan, extendDeadline, jumpTo, toggleTaskDone } from '../lib/schedule';
 
 // Phones and portrait screens get the vertical ribbon (2a); landscape gets the TV stage (1a).
@@ -67,7 +67,6 @@ export default function Home({ routines, setRoutines, currentTime }) {
   const plan = sessionLive ? session.plan : defaultPlan(tasks, endsAt.getTime());
 
   const closing = closingFor(routineId, routine);
-  const bufferMin = routine.bufferMinutes ?? DEFAULT_BUFFER_MIN;
   const view = buildPlanView({ tasks, plan, nowMs, closing, label: (ms) => hhmm(new Date(ms)) });
 
   const isPhone = useIsPhone();
@@ -171,5 +170,5 @@ export default function Home({ routines, setRoutines, currentTime }) {
 
   return isPhone
     ? <RoutinePhone {...shared} />
-    : <RoutineTV {...shared} bufferMin={bufferMin} startLabel={hhmm(new Date(view.startMs))} endLabel={hhmm(new Date(view.endMs))} />;
+    : <RoutineTV {...shared} startLabel={hhmm(new Date(view.startMs))} endLabel={hhmm(new Date(view.endMs))} />;
 }

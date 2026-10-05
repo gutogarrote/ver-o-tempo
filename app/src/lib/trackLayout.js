@@ -1,7 +1,8 @@
 // Geometry of the task ribbon (TV row / phone column), in px.
-// Blocks stay proportional to their ORIGINAL minutes, but never shrink below `minSize`,
-// so every block can hold its completion dot. The NOW line is mapped through the same
-// geometry, so it always sits inside the block of the current task.
+// Blocks are proportional to the minutes they are given (the screens pass the PLANNED
+// minutes, so a task that received time grows), but never shrink below `minSize`, so every
+// block can hold its completion dot. The NOW line is mapped through the same geometry,
+// so it always sits inside the block of the current task.
 
 // Phone: open-ended track, `perMin` px per minute, at least `minSize` each.
 export function layoutByMinute(minutes, { perMin, minSize }) {
@@ -35,6 +36,17 @@ export function layoutByLength(minutes, { length, minSize }) {
   for (let i = 0; i < n; i++) if (pinned[i]) sizes[i] = minSize;
   return withOffsets(sizes);
 }
+
+// TV with a time window: `windowMin` minutes fill `length` and a longer plan overflows to
+// the right (the ribbon scrolls). A plan that fits the window is stretched to fill it.
+export function layoutForWindow(minutes, { length, windowMin, minSize }) {
+  const total = minutes.reduce((s, m) => s + m, 0);
+  if (total <= windowMin) return layoutByLength(minutes, { length, minSize });
+  return layoutByMinute(minutes, { perMin: length / windowMin, minSize });
+}
+
+// Spans of the plan view blocks (see routineView), for positionOnTrack with planElapsed.
+export const planSpans = (blocks) => blocks.map((b) => ({ start: b.planStart, minutes: b.planMinutes }));
 
 function withOffsets(sizes) {
   const offsets = [];

@@ -1,4 +1,4 @@
-import { layoutByLength, layoutByMinute, positionOnTrack } from './trackLayout';
+import { layoutByLength, layoutByMinute, layoutForWindow, positionOnTrack } from './trackLayout';
 
 const blocksOf = (minutes) => {
   let start = 0;
@@ -56,4 +56,14 @@ test('NOW is always inside the block of the task in progress, and moves forward'
   }
   // Half of the 1-min task = middle of its (enlarged) row.
   expect(positionOnTrack(layoutByMinute(minutes, { perMin: 11, minSize: 44 }), blocks, 40.5)).toBe(462);
+});
+
+test('TV window: up to windowMin the plan fills the ribbon; longer plans overflow at length/windowMin px per min', () => {
+  const fit = layoutForWindow([20, 10], { length: 1200, windowMin: 40, minSize: 56 });
+  expect(fit.sizes).toEqual([800, 400]);
+  const long = layoutForWindow([20, 20, 10, 10, 10], { length: 1200, windowMin: 40, minSize: 56 });
+  expect(long.sizes).toEqual([600, 600, 300, 300, 300]);
+  expect(long.total).toBe(2100); // 70 min, 40 of them visible at once
+  // A task marked done in the future keeps a visible (dot-sized) block.
+  expect(layoutForWindow([45, 0, 15], { length: 1200, windowMin: 40, minSize: 56 }).sizes).toEqual([1350, 56, 450]);
 });

@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { C, FREDOKA, NUNITO, agoraColors, doneOverlay, hatch, statusStyle } from './theme';
-import { layoutByMinute, positionOnTrack } from '../../lib/trackLayout';
+import { layoutByMinute, planSpans, positionOnTrack } from '../../lib/trackLayout';
 
-const PX_PER_MIN = 11;
+export const PX_PER_MIN = 11;
 // Touch target of the completion dot; rows never get shorter than it, so short
 // (1–2 min) tasks still show the whole dot. The NOW line follows the same geometry.
 export const DOT_HIT = 44;
@@ -84,8 +84,9 @@ function TaskRow({ t, i, count, v, height, onJump, onToggleDone }) {
 export default function RoutinePhone({ v, closing, clock, isMorning, onPick, onJump, onToggleDone, onExtend, onReset, badge }) {
   const ot = v.overtime;
   const agora = agoraColors({ urgent: v.urgent, overtime: ot, color: v.current.color });
-  const layout = layoutByMinute(v.blocks.map((b) => b.minutes), { perMin: PX_PER_MIN, minSize: MIN_ROW_H });
-  const nowY = positionOnTrack(layout, v.blocks, v.elapsedOnTrack);
+  // Row heights follow the PLANNED minutes (a task that received time grows).
+  const layout = layoutByMinute(v.blocks.map((b) => b.planMinutes), { perMin: PX_PER_MIN, minSize: MIN_ROW_H });
+  const nowY = positionOnTrack(layout, planSpans(v.blocks), v.planElapsed);
 
   const trackRef = useRef(null);
   const manualUntil = useRef(0);
