@@ -1,6 +1,6 @@
 import {
   MIN_MS, completeTask, currentIndex, defaultPlan, extendDeadline, jumpTo, originalMs,
-  splitProportional, toggleTaskDone,
+  splitCapped, splitProportional, toggleTaskDone,
 } from './schedule';
 import { buildPlanView, closingFor } from './routineView';
 
@@ -72,11 +72,12 @@ describe('finishing early', () => {
     expect(v.nextUp[0].name).toBe('Hora de dormir');
   });
 
-  test('marking a future task done gives its time to the pending tasks after the current one', () => {
+  test('marking a future task done shares its time with the current task and the other pending ones', () => {
     const p = completeTask(fresh(), tasks, 2, at(19, 35));
     expect(p.endMs).toBe(D);
-    expect(p.segs[0]).toEqual(fresh().segs[0]); // current untouched
-    expect(durations(p)).toEqual([20, 26 + 2 / 3, 0, 13 + 1 / 3].map((x) => expect.closeTo(x, 6)));
+    expect(p.segs[0].start).toBe(fresh().segs[0].start); // current keeps its start (elapsed)
+    // 10 freed min shared 20:20:10 by Banho (current), Jantar and Historinha
+    expect(durations(p)).toEqual([24, 24, 0, 12]);
     expect(p.segs[3].end).toBe(D);
     expect(contiguousFrom(p, 0)).toBe(true);
   });
@@ -92,6 +93,134 @@ describe('finishing early', () => {
     expect(redo.done).toEqual([false, false, false, false]);
     expect(currentIndex(redo, at(19, 45))).toBe(0);
     expect(redo.endMs).toBe(D);
+  });
+});
+
+describe('redistributing a task marked done (current + every pending task)', () => {
+  // Atual 10 + A 10 + B 10, deadline 20:30 → 20:00–20:10–20:20–20:30
+  const abc = [
+    { id: 1, name: 'Atual', minutes: 10 },
+    { id: 2, name: 'A', minutes: 10 },
+    { id: 3, name: 'B', minutes: 10 },
+  ];
+  const T0 = at(20, 0);
+
+  test('10/10/10: marking B gives 5 min to the current task and 5 to A (15 each)', () => {
+    const p = completeTask(defaultPlan(abc, D), abc, 2, T0);
+    expect(durations(p)).toEqual([15, 15, 0]);
+    expect(p.segs[0]).toEqual({ start: T0, end: at(20, 15) });
+    expect(p.segs[1]).toEqual({ start: at(20, 15), end: D });
+    expect(p.endMs).toBe(D);
+    expect(currentIndex(p, T0)).toBe(0);
+  });
+
+  test('the time already elapsed in the current task stays with it', () => {
+    const now = at(20, 4);
+    const p = completeTask(defaultPlan(abc, D), abc, 2, now);
+    expect(p.segs[0].start).toBe(T0); // 4 min elapsed, not lost
+    expect(mins(now - p.segs[0].start)).toBe(4);
+    expect(mins(p.segs[0].end - now)).toBe(11); // 6 left + 5 received
+    expect(durations(p)).toEqual([15, 15, 0]);
+  });
+
+  test('the only pending task takes all the freed time (10 + 30 → 40)', () => {
+    const two = [{ id: 1, name: 'X', minutes: 30 }, { id: 2, name: 'Y', minutes: 10 }];
+    // X is in progress and is finished right at its start: its 30 min go to Y.
+    const p = completeTask(defaultPlan(two, D), two, 0, at(19, 50));
+    expect(durations(p)).toEqual([0, 40]);
+    expect(p.segs[1]).toEqual({ start: at(19, 50), end: D });
+    // Current 10 with a 30-min future task marked: the current task gets everything.
+    const rev = [{ id: 1, name: 'C', minutes: 10 }, { id: 2, name: 'F', minutes: 30 }];
+    const q = completeTask(defaultPlan(rev, D), rev, 1, at(19, 50));
+    expect(durations(q)).toEqual([40, 0]);
+    expect(q.segs[0]).toEqual({ start: at(19, 50), end: D });
+  });
+
+  test('shares are proportional to the ORIGINAL minutes of the receivers', () => {
+    const t5 = [20, 5, 15, 10, 30].map((m, i) => ({ id: i, name: 'T' + i, minutes: m }));
+    const p0 = defaultPlan(t5, D);
+    const p = completeTask(p0, t5, 4, p0.segs[0].start);
+    const gain = durations(p).map((d, i) => d - durations(p0)[i]);
+    // 30 freed min over weights 20:5:15:10 (total 50)
+    expect(gain.slice(0, 4)).toEqual([12, 3, 9, 6]);
+    expect(durations(p)[4]).toBe(0);
+  });
+
+  test('rounding is exact (integer ms) and the deadline never moves', () => {
+    const odd = [7, 3, 11, 5, 13].map((m, i) => ({ id: i, name: 'T' + i, minutes: m }));
+    let p = defaultPlan(odd, D);
+    const t = p.segs[0].start + 1234567; // ~20.6 min in: T2 in progress after the first mark
+    p = completeTask(p, odd, 4, p.segs[0].start + 1234);
+    expect(currentIndex(p, t)).toBe(2);
+    p = completeTask(p, odd, 2, t);
+    for (const s of p.segs) {
+      expect(Number.isInteger(s.start)).toBe(true);
+      expect(Number.isInteger(s.end)).toBe(true);
+    }
+    expect(p.endMs).toBe(D);
+    expect(p.segs[3].end).toBe(D);
+    expect(contiguousFrom(p, 0)).toBe(true);
+    expect(durations(p).reduce((a, b) => a + b)).toBe(39);
+  });
+
+  test('a second mark transfers what the task HAD (not its original minutes), weights stay original', () => {
+    const four = ['C', 'A', 'B', 'E'].map((n, i) => ({ id: i, name: n, minutes: 10 }));
+    const start = at(19, 50);
+    let p = completeTask(defaultPlan(four, D), four, 3, start); // E's 10 → 10/3 each
+    expect(p.segs[2].end - p.segs[2].start).toBe(10 * MIN_MS + Math.round(10 * MIN_MS / 3));
+    const bHad = p.segs[2].end - p.segs[2].start; // 13:20
+    const before = durations(p);
+    p = completeTask(p, four, 2, start); // B had 13:20 → 6:40 each to C and A (1:1)
+    expect(before[0] + before[1] + mins(bHad)).toBeCloseTo(40, 9);
+    expect(durations(p)).toEqual([20, 20, 0, 0]);
+    p = completeTask(p, four, 1, start); // A's 20 → C
+    expect(durations(p)).toEqual([40, 0, 0, 0]);
+    expect(p.segs[0]).toEqual({ start, end: D });
+  });
+
+  test('tasks already done never receive time; finished time is not brought back', () => {
+    let p = defaultPlan(abc, D);
+    p = completeTask(p, abc, 0, at(20, 4)); // Atual done after 4 min: 6 min go to A and B
+    expect(durations(p)).toEqual([4, 13, 13]);
+    p = completeTask(p, abc, 2, at(20, 5)); // B (future) → all to A, nothing to Atual
+    expect(durations(p)).toEqual([4, 26, 0]);
+    expect(p.segs[0]).toEqual({ start: T0, end: at(20, 4) });
+    expect(p.segs[1].end).toBe(D);
+  });
+
+  test('undoing a mark never takes back time the current task already used', () => {
+    const two = [{ id: 1, name: 'C', minutes: 10 }, { id: 2, name: 'F', minutes: 10 }];
+    let p = completeTask(defaultPlan(two, D), two, 1, at(20, 10)); // C: 20:10 → 20:30
+    expect(durations(p)).toEqual([20, 0]);
+    p = toggleTaskDone(p, two, 1, at(20, 29)); // only 1 min of C is still unused
+    expect(p.segs[0]).toEqual({ start: at(20, 10), end: at(20, 29) });
+    expect(p.segs[1]).toEqual({ start: at(20, 29), end: D });
+    expect(p.done).toEqual([false, false]);
+  });
+
+  test('no current task: in overtime the mark changes nothing else; all done leaves free time', () => {
+    // Past the deadline every task is already behind us: nothing to mark or share.
+    const p0 = defaultPlan(abc, D);
+    expect(completeTask(p0, abc, 2, at(20, 35))).toBe(p0);
+
+    let p = defaultPlan(abc, D);
+    p = completeTask(p, abc, 1, T0);
+    p = completeTask(p, abc, 2, T0);
+    expect(durations(p)).toEqual([30, 0, 0]);
+    p = completeTask(p, abc, 0, at(20, 12)); // no pending task left: 18 min of free time
+    expect(p.segs[0]).toEqual({ start: T0, end: at(20, 12) });
+    expect(p.endMs).toBe(D);
+    expect(currentIndex(p, at(20, 12))).toBe(-1);
+    expect(completeTask(p, abc, 1, at(20, 13))).toBe(p); // already done: no-op
+  });
+});
+
+describe('splitCapped', () => {
+  test('respects caps and re-shares the excess, exact integers', () => {
+    expect(splitCapped(100, [1, 1, 1], [10, 1000, 1000])).toEqual([10, 45, 45]);
+    expect(splitCapped(100, [1, 1], [10, 20])).toEqual([10, 20]);
+    expect(splitCapped(7, [2, 1, 0], [100, 100, 100])).toEqual([5, 2, 0]);
+    expect(splitCapped(0, [1], [5])).toEqual([0]);
   });
 });
 

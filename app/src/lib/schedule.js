@@ -1,7 +1,12 @@
 // Session schedule ("plan") for one run of a routine.
 // A plan is { endMs, segs: [{ start, end }] (ms timestamps per task), done: [bool] }.
-// Every redistribution uses the ORIGINAL configured minutes as weights, so repeated
-// adjustments never compound, and the configured routine itself is never modified.
+// Three different quantities, never mixed up:
+//  - original minutes: what the parents configured; only ever used as WEIGHTS, so repeated
+//    adjustments never compound, and the configured routine itself is never modified;
+//  - planned duration: seg.end - seg.start, the time currently allocated to the task in
+//    this run; this is what gets MOVED around when a task is marked done;
+//  - elapsed: now - seg.start of the task in progress. It belongs to that task for good:
+//    no redistribution moves its start or pulls its end back before now.
 
 export const MIN_MS = 60000;
 export const EXTEND_MS = 5 * MIN_MS;
@@ -38,6 +43,28 @@ export function splitProportional(totalMs, weights) {
   for (let k = 0; rest < 0 && order.length; k++) {
     const i = order[order.length - 1 - (k % order.length)][1];
     if (out[i] > 0) { out[i]--; rest++; }
+  }
+  return out;
+}
+
+// Like splitProportional, but part i never exceeds caps[i] (water-filling: parts that hit
+// their cap are frozen and the rest is shared again among the others). Returns integer
+// parts summing to min(totalMs, what the caps allow among positive weights).
+export function splitCapped(totalMs, weights, caps) {
+  const out = weights.map(() => 0);
+  let rest = Math.max(0, Math.round(totalMs) || 0);
+  let active = weights.map((_, k) => k).filter((k) => weights[k] > 0 && caps[k] > 0);
+  while (rest > 0 && active.length) {
+    const parts = splitProportional(rest, active.map((k) => weights[k]));
+    let given = 0;
+    active.forEach((k, j) => {
+      const g = Math.min(parts[j], caps[k] - out[k]);
+      out[k] += g;
+      given += g;
+    });
+    rest -= given;
+    if (!given) break;
+    active = active.filter((k) => out[k] < caps[k]);
   }
   return out;
 }
@@ -86,9 +113,28 @@ function replan(plan, orig, from, anchorMs) {
   return { ...plan, segs };
 }
 
-// Mark task i done. Current task: it ends now and the time left until the (unchanged)
-// deadline is shared by the pending tasks after it. Future task: its time goes to the
-// pending tasks after the current one; the current task is left as is.
+const durationsOf = (plan) => plan.segs.map((s) => s.end - s.start);
+
+// Lay tasks [from..] back to back from startMs with the given durations.
+function layOut(plan, from, startMs, durs) {
+  const segs = plan.segs.slice();
+  let t = startMs;
+  for (let i = from; i < segs.length; i++) {
+    segs[i] = { start: t, end: t + durs[i] };
+    t += durs[i];
+  }
+  return segs;
+}
+
+// Mark task i done; the deadline never moves.
+//  - Current task: it ends now (its elapsed time stays with it) and what was still
+//    allocated to it (end - now) is shared by the pending tasks after it. With no pending
+//    task left, that time becomes free time until the deadline.
+//  - Future task: the duration currently allocated to it (not its original minutes) is
+//    shared by the current task and every other pending task. The current task keeps its
+//    start (and so its elapsed time) and just ends later.
+// Shares use original minutes as weights; tasks already done never receive anything.
+// In overtime nothing is left to share: the task is only marked.
 export function completeTask(plan, tasks, i, nowMs) {
   if (i < 0 || i >= plan.segs.length || isTaskDone(plan, i, nowMs)) return plan;
   const done = plan.done.slice();
@@ -96,13 +142,41 @@ export function completeTask(plan, tasks, i, nowMs) {
   if (isOvertime(plan, nowMs)) return { ...plan, done };
   const orig = originalMs(tasks);
   const c = currentIndex(plan, nowMs);
+  const durs = durationsOf(plan);
+  const cur = plan.segs[c];
+  let freed;
   if (i === c) {
-    const segs = plan.segs.slice();
-    const end = Math.min(Math.max(nowMs, segs[i].start), segs[i].end);
-    segs[i] = { start: segs[i].start, end };
-    return replan({ ...plan, segs, done }, orig, i + 1, end);
+    const end = Math.min(Math.max(nowMs, cur.start), cur.end);
+    freed = cur.end - end;
+    durs[c] = end - cur.start;
+  } else {
+    freed = durs[i];
+    durs[i] = 0;
   }
-  return replan({ ...plan, done }, orig, c + 1, plan.segs[c].end);
+  const takers = [];
+  for (let j = c; j < durs.length; j++) if (!done[j]) takers.push(j);
+  const shares = splitProportional(freed, takers.map((j) => orig[j]));
+  takers.forEach((j, k) => { durs[j] += shares[k]; });
+  return { ...plan, done, segs: layOut(plan, c, cur.start, durs) };
+}
+
+// Undo the mark of a future task (i > current): it gets its original minutes back, taken
+// from the current task and the other pending tasks by original weight. The current task
+// never gives up time it has already used (it cannot end before now); if the others
+// together have less than that, the task gets what there is. Deadline unchanged.
+function unmarkFuture(plan, tasks, i, c, nowMs) {
+  const orig = originalMs(tasks);
+  const done = plan.done.slice();
+  done[i] = false;
+  const durs = durationsOf(plan);
+  const cur = plan.segs[c];
+  const givers = [];
+  for (let j = c; j < durs.length; j++) if (j !== i && !done[j]) givers.push(j);
+  const caps = givers.map((j) => (j === c ? cur.end - Math.max(nowMs, cur.start) : durs[j]));
+  const taken = splitCapped(orig[i], givers.map((j) => orig[j]), caps);
+  givers.forEach((j, k) => { durs[j] -= taken[k]; });
+  durs[i] = taken.reduce((a, b) => a + b, 0);
+  return { ...plan, done, segs: layOut(plan, c, cur.start, durs) };
 }
 
 // Start task i now ("Pular para"). Everything from i on becomes pending again.
@@ -144,16 +218,12 @@ export function extendDeadline(plan, tasks, nowMs, ms = EXTEND_MS) {
 }
 
 // The completion dot: marks a pending task done; on a done task it undoes the mark.
-// Undoing a marked future task just returns it to the queue after the current task;
-// undoing a task that is already behind us means "redo it": same as jumping to it.
+// Undoing a marked future task returns it to the queue (see unmarkFuture); undoing a task
+// that is already behind us means "redo it": same as jumping to it.
 export function toggleTaskDone(plan, tasks, i, nowMs, opts) {
   if (i < 0 || i >= plan.segs.length) return plan;
   if (!isTaskDone(plan, i, nowMs)) return completeTask(plan, tasks, i, nowMs);
   const c = isOvertime(plan, nowMs) ? -1 : currentIndex(plan, nowMs);
-  if (plan.done[i] && c >= 0 && i > c) {
-    const done = plan.done.slice();
-    done[i] = false;
-    return replan({ ...plan, done }, originalMs(tasks), c + 1, plan.segs[c].end);
-  }
+  if (plan.done[i] && c >= 0 && i > c) return unmarkFuture(plan, tasks, i, c, nowMs);
   return jumpTo(plan, tasks, i, nowMs, opts);
 }

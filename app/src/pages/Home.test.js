@@ -66,12 +66,15 @@ test('marking the current task done advances to the next one and keeps 20:30 (do
   expect(screen.getByRole('button', { name: 'Pular para Jantar' })).toHaveAttribute('title', 'Jantar — 25 min');
 });
 
-test('the dot of a future task marks it without touching the current one', () => {
+test('the dot of a future task marks it; its time goes to the current and pending tasks', () => {
   renderEvening(today(19, 35));
   fireEvent.click(dot('Dentes'));
   expect(dot('Dentes')).toHaveAttribute('aria-pressed', 'true');
   expect(dot('Banho')).toHaveAttribute('aria-pressed', 'false');
-  expect(screen.getByText('Termina às 19:50')).toBeInTheDocument();
+  // 10 min shared 20:20:10 → Banho 24 (still in progress, ends 19:54), Jantar 24, Historinha 12
+  expect(screen.getByText('Termina às 19:54')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Pular para Banho' })).toHaveAttribute('title', 'Banho — 24 min');
+  expect(screen.getByRole('button', { name: 'Pular para Historinha' })).toHaveAttribute('title', 'Historinha — 12 min');
   expect(screen.getByText('TERMINA 20:30')).toBeInTheDocument();
 });
 
