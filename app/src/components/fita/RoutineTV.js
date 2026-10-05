@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { C, FREDOKA, NUNITO, agoraColors, doneOverlay, hatch, statusStyle } from './theme';
-import { layoutForWindow, planSpans, positionOnTrack } from '../../lib/trackLayout';
+import { layoutExact, ribbonWindow, spreadDots } from '../../lib/trackLayout';
+import { hhmm } from '../../lib/timeline';
 
 const STAGE_W = 1440;
 const STAGE_H = 810;
@@ -12,16 +13,24 @@ const RIBBON_H = 300;
 export const RIBBON_W = STAGE_W - 2 * PAD_X - CLOSE_W - RIBBON_GAP;
 export const DOT = 40;
 const DOT_INSET = 14;
-// Narrowest block: room for the completion dot plus a margin on each side.
-export const MIN_BLOCK_W = DOT + 16;
-// Minutes shown across the visible ribbon (~31 px/min: a 10-min block is ~307 px, wide
-// enough for icon + name at the TV font sizes). Longer plans scroll to the right; shorter
-// ones are stretched to fill the ribbon as before. Adjust here if legibility asks for it.
+// Blocks narrower than this carry their dot centered instead of in the bottom-right corner.
+const NARROW_W = 100;
+// Dots never get closer than this (center to center), whatever the block widths.
+export const DOT_GAP = DOT + 6;
+// Minutes shown across the visible ribbon, always (~31 px/min: a 10-min block is ~307 px,
+// wide enough for icon + name at the TV font sizes). Every block is exactly its planned
+// minutes wide, so the window is 40 minutes of plan whatever the number of tasks, done
+// tasks or routine length. Adjust here if legibility asks for it.
 export const WINDOW_MIN = 40;
-const FOLLOW_AT = 0.25; // keep NOW ~25% from the left edge of the visible ribbon
-const MANUAL_HOLD_MS = 10000; // manual scroll pauses auto-follow for this long
-const FLAG_GAP = 8; // time label sits this far to the side of the NOW line
-const FLAG_FLIP = 110; // closer than this to the end of the track: label goes on the left
+export const PX_PER_MIN = RIBBON_W / WINDOW_MIN;
+// The NOW marker is fixed 25% from the left edge of the visible ribbon (10 minutes of
+// what already happened on its left, 30 of what comes on its right); the track scrolls
+// under it.
+export const FOLLOW_AT = 0.25;
+export const NOW_X = RIBBON_W * FOLLOW_AT;
+const PRE_MAX_MIN = 30; // before the start: show up to 30 min of wait before the first block
+export const MANUAL_HOLD_MS = 10000; // manual scroll pauses auto-follow for this long
+const FLAG_GAP = 8; // time label sits this far to the right of the NOW line
 
 // Scale the fixed 1440×810 stage to fit any TV / window, letterboxed.
 function useStageScale() {
@@ -38,11 +47,12 @@ function useStageScale() {
 // The time label of the NOW line lives at the top of the ribbon; completion dots live at the
 // bottom of the blocks (DOT_INSET from the bottom edge), so the two never meet wherever NOW is.
 export const FLAG_TOP = 10;
-const flag = {
-  position: 'absolute', top: FLAG_TOP, background: C.ink, color: '#fff',
+const flagBox = {
+  background: C.ink, color: '#fff',
   padding: '7px 16px', borderRadius: 999, font: `900 20px ${NUNITO}`, whiteSpace: 'nowrap',
-  boxShadow: `0 0 0 4px ${C.bg}`, zIndex: 2,
+  boxShadow: `0 0 0 4px ${C.bg}`,
 };
+const flag = { ...flagBox, position: 'absolute', top: FLAG_TOP, zIndex: 2 };
 
 function Pill({ on, onClick, children }) {
   return (
@@ -61,12 +71,17 @@ function Pill({ on, onClick, children }) {
   );
 }
 
-function TaskBlock({ t, i, count, v, width, onJump, onToggleDone }) {
+function TaskBlock({ t, i, v, width, radius, onJump }) {
   const ring = t.isCurrent && !v.overtime;
-  const radius = i === 0 ? '30px 0 0 30px' : i === count - 1 ? '0 30px 30px 0' : '0';
-  const narrow = width < 100;
-  // The block and its completion dot are sibling buttons (no nested buttons), so tapping
-  // the dot never starts the task.
+  // A task with no time left (done ahead of time) has no width on the time scale; its dot
+  // (see CompletionDot) and a thin seam in its color stand for it.
+  if (width <= 0) {
+    return (
+      <div data-testid="tv-block" data-zero="true" style={{ position: 'relative', flex: 'none', width: 0 }}>
+        <div data-testid="tv-zero-seam" style={{ position: 'absolute', top: 0, bottom: 0, left: -3, width: 6, background: t.color, opacity: 0.75, pointerEvents: 'none' }} />
+      </div>
+    );
+  }
   return (
     <div
       data-testid="tv-block"
@@ -90,63 +105,74 @@ function TaskBlock({ t, i, count, v, width, onJump, onToggleDone }) {
           <div style={{ font: `700 17px ${NUNITO}`, whiteSpace: 'nowrap', color: t.done ? 'rgba(58,48,38,.8)' : 'rgba(255,255,255,.92)' }}>{t.shownMinutes} min</div>
         </div>
       </button>
-      <button
-        onClick={(e) => { e.stopPropagation(); onToggleDone(i); }}
-        aria-pressed={t.done}
-        aria-label={t.done ? `${t.name}: feita (desmarcar)` : `Marcar ${t.name} como feita`}
-        title={t.done ? 'Feita' : 'Marcar como feita'}
-        style={{
-          // zIndex: painted over the NOW line, which may cross the dot.
-          position: 'absolute', zIndex: 3, bottom: DOT_INSET, right: narrow ? '50%' : DOT_INSET, transform: narrow ? 'translateX(50%)' : 'none',
-          width: DOT, height: DOT, borderRadius: 999, padding: 0, cursor: 'pointer', boxSizing: 'border-box',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', font: `900 ${DOT * 0.6}px ${NUNITO}`,
-          ...(t.done
-            ? { background: '#fff', color: C.check, border: 0, boxShadow: '0 3px 0 rgba(0,0,0,.15)' }
-            : { background: 'rgba(255,255,255,.18)', color: 'transparent', border: '4px solid rgba(255,255,255,.92)' }),
-        }}
-      >
-        ✓
-      </button>
     </div>
   );
 }
 
-// Horizontal scroll of the ribbon: follows NOW (kept FOLLOW_AT from the left, so what is
-// left of the routine shows on the right) unless the user scrolled by hand recently.
-// The mouse wheel scrolls it sideways. Returns [ref, onScroll, onWheel, more] where more
-// tells which sides have hidden blocks.
-function useRibbonScroll(nowX) {
+// Where each dot wants to be (px from the plan start): bottom-right corner of its block,
+// centered in narrow blocks, on the seam for blocks with no time. spreadDots then keeps
+// every dot whole and apart, without touching the time scale.
+export function dotCenters(layout) {
+  const want = layout.sizes.map((w, i) => {
+    const o = layout.offsets[i];
+    if (w >= NARROW_W) return o + w - DOT_INSET - DOT / 2;
+    return o + w / 2;
+  });
+  return spreadDots(want, DOT_GAP);
+}
+
+// The completion dot is a sibling of the block (no nested buttons), so tapping it never
+// starts the task. zIndex: painted over the NOW line/label, which may cross it.
+function CompletionDot({ t, i, left, zero, onToggleDone }) {
+  return (
+    <button
+      data-testid="tv-dot"
+      onClick={(e) => { e.stopPropagation(); onToggleDone(i); }}
+      aria-pressed={t.done}
+      aria-label={t.done ? `${t.name}: feita (desmarcar)` : `Marcar ${t.name} como feita`}
+      title={t.done ? (zero ? `${t.name} — feita antes da hora` : 'Feita') : 'Marcar como feita'}
+      style={{
+        position: 'absolute', zIndex: 3, bottom: DOT_INSET, left: left - DOT / 2,
+        width: DOT, height: DOT, borderRadius: 999, padding: 0, cursor: 'pointer', boxSizing: 'border-box',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', font: `900 ${DOT * 0.6}px ${NUNITO}`,
+        ...(t.done
+          ? { background: '#fff', color: C.check, border: zero ? `4px solid ${t.color}` : 0, boxShadow: '0 3px 0 rgba(0,0,0,.15)' }
+          : { background: 'rgba(255,255,255,.18)', color: 'transparent', border: '4px solid rgba(255,255,255,.92)' }),
+      }}
+    >
+      ✓
+    </button>
+  );
+}
+
+// Horizontal scroll of the ribbon. Following: the track is scrolled so that the marker
+// (fixed at NOW_X) shows the current time. When the user scrolls by hand (wheel, drag,
+// keys) the follow pauses: `browse` holds that scrollLeft until MANUAL_HOLD_MS after the
+// last manual scroll or until "Agora" is pressed. Returns { ref, scrollLeft, browse, ... }.
+function useRibbonScroll(target) {
   const ref = useRef(null);
-  const manualUntil = useRef(0);
-  const auto = useRef(false);
-  const [more, setMore] = useState({ left: false, right: false });
-  const measure = () => {
-    const el = ref.current;
-    if (!el) return;
-    const next = { left: el.scrollLeft > 1, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 1 };
-    setMore((m) => (m.left === next.left && m.right === next.right ? m : next));
-  };
+  const [browse, setBrowse] = useState(null);
+  const targetRef = useRef(target);
+  targetRef.current = target;
   useEffect(() => {
     const el = ref.current;
-    if (el && Date.now() >= manualUntil.current) {
-      const target = Math.max(0, Math.min(nowX - el.clientWidth * FOLLOW_AT, el.scrollWidth - el.clientWidth));
-      if (Math.abs(el.scrollLeft - target) > 1) {
-        auto.current = true;
-        el.scrollLeft = target;
-        requestAnimationFrame(() => { auto.current = false; });
-      }
-    }
-    measure();
+    if (el && browse === null && Math.abs(el.scrollLeft - target) > 0.5) el.scrollLeft = target;
   });
+  useEffect(() => {
+    if (browse === null) return undefined;
+    const id = setTimeout(() => setBrowse(null), MANUAL_HOLD_MS);
+    return () => clearTimeout(id);
+  }, [browse]);
+  // Our own scrolling lands on the target; anything else is the user looking around.
   const onScroll = () => {
-    if (!auto.current) manualUntil.current = Date.now() + MANUAL_HOLD_MS;
-    measure();
+    const sl = ref.current.scrollLeft;
+    setBrowse(Math.abs(sl - targetRef.current) > 2 ? sl : null);
   };
   const onWheel = (e) => {
     const el = ref.current;
     if (el && Math.abs(e.deltaY) > Math.abs(e.deltaX)) el.scrollLeft += e.deltaY;
   };
-  return [ref, onScroll, onWheel, more];
+  return { ref, onScroll, onWheel, browse, scrollLeft: browse ?? target, follow: () => setBrowse(null) };
 }
 
 const fade = (side) => ({
@@ -161,11 +187,29 @@ export default function RoutineTV({ v, closing, clock, startLabel, endLabel, isM
   const scale = useStageScale();
   const ot = v.overtime;
   const agora = agoraColors({ urgent: v.urgent, overtime: ot, color: v.current.color });
-  // Blocks follow the PLANNED minutes, on a 40-min window (see WINDOW_MIN).
-  const layout = layoutForWindow(v.blocks.map((b) => b.planMinutes), { length: RIBBON_W, windowMin: WINDOW_MIN, minSize: MIN_BLOCK_W });
-  const nowX = positionOnTrack(layout, planSpans(v.blocks), v.planElapsed);
-  const [trackRef, onTrackScroll, onTrackWheel, more] = useRibbonScroll(nowX);
-  const flagLeft = nowX > layout.total - FLAG_FLIP;
+  // Blocks follow the PLANNED minutes on a fixed scale; the marker stays at NOW_X.
+  const layout = layoutExact(v.blocks.map((b) => b.planMinutes), { perMin: PX_PER_MIN });
+  const win = ribbonWindow({ viewW: RIBBON_W, windowMin: WINDOW_MIN, followAt: FOLLOW_AT, planMin: v.planEndMin, nowMin: v.nowElapsed, preMaxMin: PRE_MAX_MIN });
+  const scroll = useRibbonScroll(win.scrollFor(win.markMin));
+  const dots = dotCenters(layout);
+  const shown = v.blocks.map((_, i) => i).filter((i) => layout.sizes[i] > 0);
+  const radiusOf = (i) => {
+    const first = i === shown[0];
+    const last = i === shown[shown.length - 1];
+    return `${first ? 30 : 0}px ${last ? 30 : 0}px ${last ? 30 : 0}px ${first ? 30 : 0}px`;
+  };
+  // The marker never moves on screen. Following, it shows the clock. While the user looks
+  // elsewhere it shows the time under it (dashed, 👀) and offers to come back: the real
+  // progress stays visible in the blocks (current block ring + darkened part).
+  const browsing = scroll.browse !== null;
+  const underMin = win.minAt(scroll.scrollLeft);
+  const underLabel = hhmm(new Date(v.startMs + underMin * 60000));
+  const mode = browsing ? 'browse' : win.early ? 'early' : 'now';
+  const blocksEnd = win.lead + layout.total;
+  const more = {
+    left: shown.length > 0 && scroll.scrollLeft > win.lead + 1,
+    right: shown.length > 0 && blocksEnd > scroll.scrollLeft + RIBBON_W + 1,
+  };
 
   return (
     <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -196,27 +240,56 @@ export default function RoutineTV({ v, closing, clock, startLabel, endLabel, isM
           <div style={{ display: 'flex', alignItems: 'stretch', gap: RIBBON_GAP, height: RIBBON_H }}>
             <div style={{ position: 'relative', flex: 'none', width: RIBBON_W }}>
               <div
-                ref={trackRef}
+                ref={scroll.ref}
                 data-testid="tv-track"
                 className="no-scrollbar"
-                onScroll={onTrackScroll}
-                onWheel={onTrackWheel}
+                tabIndex={0}
+                role="region"
+                aria-label="Linha do tempo da rotina"
+                onScroll={scroll.onScroll}
+                onWheel={scroll.onWheel}
                 style={{ height: '100%', width: '100%', overflowX: 'auto', overflowY: 'hidden', borderRadius: 30, background: C.track, boxShadow: '0 8px 0 rgba(0,0,0,.07)' }}
               >
-                <div style={{ position: 'relative', display: 'flex', height: '100%', width: layout.total, minWidth: '100%' }}>
-                  {v.blocks.map((t, i) => (
-                    <TaskBlock key={t.id ?? i} t={t} i={i} count={v.blocks.length} v={v} width={layout.sizes[i]} onJump={onJump} onToggleDone={onToggleDone} />
-                  ))}
-                  <div style={{ position: 'absolute', top: 0, bottom: 0, left: nowX, width: 6, background: C.ink, transform: 'translateX(-3px)', boxShadow: '0 0 0 2px rgba(255,255,255,.7)', pointerEvents: 'none' }} data-testid="tv-now-line" />
-                  {!ot && (
-                    <div
-                      data-testid="tv-now-flag"
-                      style={{ ...flag, left: nowX, transform: flagLeft ? `translateX(calc(-100% - ${FLAG_GAP}px))` : `translateX(${FLAG_GAP}px)`, pointerEvents: 'none' }}
-                    >
-                      {clock}
+                <div data-testid="tv-content" style={{ position: 'relative', height: '100%', width: win.contentW }}>
+                  {v.nowElapsed < 0 && (
+                    <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: win.lead - 48, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', font: `800 20px ${NUNITO}`, color: C.muted, whiteSpace: 'nowrap', pointerEvents: 'none' }}>
+                      começa às {startLabel} ›
                     </div>
                   )}
+                  {ot && (
+                    <div data-testid="tv-overtime" style={{ position: 'absolute', top: 0, bottom: 0, left: win.xOf(v.planEndMin), width: win.xOf(v.nowElapsed) - win.xOf(v.planEndMin), background: hatch(closing.color, 16), opacity: 0.55, pointerEvents: 'none' }} />
+                  )}
+                  <div data-testid="tv-deadline" style={{ position: 'absolute', top: 0, bottom: 0, left: win.xOf(v.planEndMin) - 2, width: 0, borderLeft: `4px dashed ${C.muted}`, pointerEvents: 'none' }} />
+                  <div style={{ position: 'absolute', top: 0, bottom: 0, left: win.lead, display: 'flex' }}>
+                    {v.blocks.map((t, i) => (
+                      <TaskBlock key={t.id ?? i} t={t} i={i} v={v} width={layout.sizes[i]} radius={radiusOf(i)} onJump={onJump} />
+                    ))}
+                  </div>
+                  {v.blocks.map((t, i) => (
+                    <CompletionDot key={t.id ?? i} t={t} i={i} left={win.lead + dots[i]} zero={layout.sizes[i] <= 0} onToggleDone={onToggleDone} />
+                  ))}
                 </div>
+              </div>
+              {/* NOW marker: an overlay over the scrolling track, fixed at NOW_X. */}
+              <div
+                data-testid="tv-now-line"
+                data-mode={mode}
+                style={{
+                  position: 'absolute', top: 0, bottom: 0, left: NOW_X - 3, width: 6, zIndex: 2, pointerEvents: 'none', boxSizing: 'border-box',
+                  ...(mode === 'browse'
+                    ? { borderLeft: `6px dashed ${C.ink}`, opacity: 0.55 }
+                    : { background: C.ink, boxShadow: '0 0 0 2px rgba(255,255,255,.7)' }),
+                }}
+              />
+              <div data-testid="tv-now-tag" style={{ position: 'absolute', top: FLAG_TOP, left: NOW_X + FLAG_GAP, zIndex: 2, display: 'flex', gap: 8, pointerEvents: 'none' }}>
+                {mode === 'browse' ? (
+                  <>
+                    <div data-testid="tv-now-flag" aria-label={`Olhando ${underLabel} — agora são ${clock}`} style={{ ...flagBox, background: '#fff', color: C.ink, boxShadow: `0 0 0 3px ${C.muted}` }}>👀 {underLabel}</div>
+                    <button onClick={scroll.follow} aria-label={`Voltar para agora (${clock})`} style={{ ...flagBox, border: 0, cursor: 'pointer', pointerEvents: 'auto' }}>↩ Agora</button>
+                  </>
+                ) : (
+                  <div data-testid="tv-now-flag" style={flagBox}>{mode === 'early' ? `⏳ ${clock}` : clock}</div>
+                )}
               </div>
               {more.left && <div data-testid="tv-more-left" style={fade('left')}>‹</div>}
               {more.right && <div data-testid="tv-more-right" style={fade('right')}>›</div>}

@@ -1,8 +1,9 @@
 // Geometry of the task ribbon (TV row / phone column), in px.
 // Blocks are proportional to the minutes they are given (the screens pass the PLANNED
-// minutes, so a task that received time grows), but never shrink below `minSize`, so every
-// block can hold its completion dot. The NOW line is mapped through the same geometry,
-// so it always sits inside the block of the current task.
+// minutes, so a task that received time grows). Phone rows never shrink below `minSize`,
+// so every row can hold its completion dot, and the NOW line is mapped through the same
+// geometry (positionOnTrack), so it always sits inside the row of the current task.
+// The TV uses an exact time scale instead (layoutExact + ribbonWindow + spreadDots).
 
 // Phone: open-ended track, `perMin` px per minute, at least `minSize` each.
 export function layoutByMinute(minutes, { perMin, minSize }) {
@@ -37,12 +38,63 @@ export function layoutByLength(minutes, { length, minSize }) {
   return withOffsets(sizes);
 }
 
-// TV with a time window: `windowMin` minutes fill `length` and a longer plan overflows to
-// the right (the ribbon scrolls). A plan that fits the window is stretched to fill it.
-export function layoutForWindow(minutes, { length, windowMin, minSize }) {
-  const total = minutes.reduce((s, m) => s + m, 0);
-  if (total <= windowMin) return layoutByLength(minutes, { length, minSize });
-  return layoutByMinute(minutes, { perMin: length / windowMin, minSize });
+// TV: a fixed time scale. Every block is exactly minutes × perMin wide — a task with no
+// time left (marked done in the future) has no width, so the visible window is always
+// exactly the same number of minutes, however many tasks are done. Completion dots do not
+// depend on block widths (see spreadDots).
+export function layoutExact(minutes, { perMin }) {
+  return withOffsets(minutes.map((m) => Math.max(0, m) * perMin));
+}
+
+// TV ribbon seen through a fixed window: `viewW` px show `windowMin` minutes and the NOW
+// marker is pinned at `followAt` × viewW from the left of the window; the track scrolls
+// under it. Content (px), left to right:
+//   lead     empty track before the plan start, so the start can sit under the marker
+//            (grows before the start, up to `preMaxMin` minutes);
+//   plan     0..planMin minutes (blocks, then any free time, up to the deadline);
+//   tail     after the deadline: overtime up to now, then room so the deadline/now can
+//            still sit under the marker.
+// Minutes are counted from the plan start (negative = before it). `markMin` is the time
+// the marker shows when following the clock: nowMin, except long before the start, when
+// it waits at -preMaxMin (`early`).
+export function ribbonWindow({ viewW, windowMin, followAt, planMin, nowMin, preMaxMin }) {
+  const perMin = viewW / windowMin;
+  const anchor = viewW * followAt;
+  const pre = Math.min(Math.max(0, -nowMin), preMaxMin);
+  const markMin = Math.max(nowMin, -pre);
+  const lead = anchor + pre * perMin;
+  const endMin = Math.max(planMin, markMin);
+  const contentW = lead + endMin * perMin + (viewW - anchor);
+  const xOf = (min) => lead + min * perMin;
+  return {
+    perMin, anchor, lead, contentW, markMin, early: nowMin < markMin,
+    maxScroll: contentW - viewW,
+    xOf,
+    // scrollLeft that puts `min` under the marker, and the minute under it for a scrollLeft.
+    scrollFor: (min) => xOf(min) - anchor,
+    minAt: (scrollLeft) => (scrollLeft + anchor - lead) / perMin,
+  };
+}
+
+// Spread markers (dots) along a line: centers as close as possible to `desired` (sorted
+// ascending) but at least `gap` apart. Pool-adjacent-violators: overlapping runs are merged
+// and centered on the mean of their wishes, so a crowd spreads evenly around where it wants
+// to be instead of being pushed to one side.
+export function spreadDots(desired, gap) {
+  const runs = []; // { sum of (desired - k·gap), count, first index }
+  desired.forEach((d, i) => {
+    let run = { sum: d - i * gap, n: 1, first: i };
+    for (;;) {
+      const prev = runs[runs.length - 1];
+      if (!prev || prev.sum / prev.n < run.sum / run.n) break;
+      runs.pop();
+      run = { sum: prev.sum + run.sum, n: prev.n + run.n, first: prev.first };
+    }
+    runs.push(run);
+  });
+  const out = [];
+  for (const r of runs) for (let k = 0; k < r.n; k++) out.push(r.sum / r.n + (r.first + k) * gap);
+  return out;
 }
 
 // Spans of the plan view blocks (see routineView), for positionOnTrack with planElapsed.

@@ -1,10 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import Home from '../../pages/Home';
 import { DOT_HIT, MIN_ROW_H } from './RoutinePhone';
-import { DOT, FLAG_TOP, MIN_BLOCK_W, RIBBON_W, WINDOW_MIN } from './RoutineTV';
+import { DOT, DOT_GAP, FLAG_TOP, PX_PER_MIN, RIBBON_W, WINDOW_MIN } from './RoutineTV';
 
 // Regression for the marca-feito audit: short tasks must keep a whole, tappable dot,
 // the TV AGORA flag must never sit on a dot, and NOW must stay aligned with the blocks.
+// (jsdom has no layout: scrollLeft here is the follow value the component wrote.)
 
 const at = (h, m, s = 0) => {
   const d = new Date();
@@ -73,21 +74,24 @@ describe('phone', () => {
 });
 
 describe('TV', () => {
-  test('short blocks keep the minimum width; the 53-min routine overflows the 40-min ribbon', () => {
+  const perMin = PX_PER_MIN;
+  test('short blocks are exactly their minutes (no minimum width); dots stay whole and apart', () => {
     renderAt(at(19, 30), false);
     const widths = screen.getAllByTestId('tv-block').map((b) => px(b.style.width));
-    const perMin = RIBBON_W / WINDOW_MIN;
-    expect(widths[1]).toBe(MIN_BLOCK_W);
-    expect(widths[2]).toBe(Math.max(MIN_BLOCK_W, 2 * perMin));
-    expect(widths[0]).toBeCloseTo(40 * perMin, 6);
-    expect(widths[0] / widths[3]).toBeCloseTo(4, 6);
-    expect(widths.reduce((a, b) => a + b, 0)).toBeGreaterThan(RIBBON_W);
+    [40, 1, 2, 10].forEach((m, i) => expect(widths[i]).toBeCloseTo(m * perMin, 6));
+    expect(perMin * WINDOW_MIN).toBeCloseTo(RIBBON_W, 9);
+    const lefts = ['Jantar', 'Pente', 'Dentes', 'Historinha'].map((n) => px(dot(n).style.left));
+    for (let i = 1; i < 4; i++) expect(lefts[i] - lefts[i - 1]).toBeGreaterThanOrEqual(DOT_GAP - 1e-6);
+    // Each crowded dot stays within one dot of its (narrow) block.
+    const lead = px(screen.getAllByTestId('tv-block')[0].parentElement.style.left);
+    expect(Math.abs(lefts[1] + DOT / 2 - lead - 40.5 * perMin)).toBeLessThan(DOT);
+    expect(Math.abs(lefts[2] + DOT / 2 - lead - 42 * perMin)).toBeLessThan(DOT);
   });
 
   test('dots sit at the bottom, far below the time label, and above the NOW line', () => {
     renderAt(at(19, 47, 30), false);
-    const flag = screen.getByTestId('tv-now-flag');
-    expect(px(flag.style.top)).toBe(FLAG_TOP);
+    const tag = screen.getByTestId('tv-now-tag');
+    expect(px(tag.style.top)).toBe(FLAG_TOP);
     for (const name of ['Jantar', 'Pente', 'Dentes', 'Historinha']) {
       const b = dot(name);
       expect(b.style.top).toBe('');
@@ -95,18 +99,20 @@ describe('TV', () => {
       // Ribbon is 300 tall: the dot occupies [300 - bottom - DOT, 300 - bottom].
       // Even a flag three times its real ~41px height would end before that.
       expect(FLAG_TOP + 3 * 41).toBeLessThan(300 - px(b.style.bottom) - DOT);
-      expect(Number(b.style.zIndex)).toBeGreaterThan(Number(flag.style.zIndex));
+      expect(Number(b.style.zIndex)).toBeGreaterThan(Number(tag.style.zIndex));
+      expect(Number(b.style.zIndex)).toBeGreaterThan(Number(screen.getByTestId('tv-now-line').style.zIndex));
     }
   });
 
-  test('NOW line stays inside the block of the task in progress across the routine', () => {
+  test('the minute under the fixed marker is inside the block of the task in progress across the routine', () => {
     for (let s = 0; s < 53 * 60; s += 20) {
       const { unmount } = renderAt(new Date(at(19, 7).getTime() + s * 1000), false);
-      const blocks = screen.getAllByTestId('tv-block');
-      const widths = blocks.map((b) => px(b.style.width));
+      const widths = screen.getAllByTestId('tv-block').map((b) => px(b.style.width));
       const i = s < 40 * 60 ? 0 : s < 41 * 60 ? 1 : s < 43 * 60 ? 2 : 3;
+      const lead = px(screen.getAllByTestId('tv-block')[0].parentElement.style.left);
+      const line = screen.getByTestId('tv-now-line');
+      const x = px(line.style.left) + px(line.style.width) / 2 + px(screen.getByTestId('tv-track').scrollLeft) - lead;
       const left = widths.slice(0, i).reduce((a, b) => a + b, 0);
-      const x = px(screen.getByTestId('tv-now-line').style.left);
       expect(x).toBeGreaterThanOrEqual(left - 1e-6);
       expect(x).toBeLessThanOrEqual(left + widths[i] + 1e-6);
       unmount();

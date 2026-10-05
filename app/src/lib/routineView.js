@@ -108,6 +108,9 @@ export function buildPlanView({ tasks, plan, nowMs, closing, label }) {
     elapsedOnTrack: nowFrac * total,
     // Real progress along the plan, in minutes since its start (0 before the start).
     planElapsed: n ? (t - plan.segs[0].start) / MIN_MS : 0,
+    // Same, not clamped at the start (negative before it), and the deadline on that scale.
+    nowElapsed: n ? (nowMs - plan.segs[0].start) / MIN_MS : 0,
+    planEndMin: n ? (plan.endMs - plan.segs[0].start) / MIN_MS : 0,
     startMs: n ? plan.segs[0].start : plan.endMs,
     endMs: plan.endMs,
     countdown: overtime ? '+' + mmss(over) : mmss(remaining),
