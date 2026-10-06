@@ -104,13 +104,13 @@ export function ribbonItems(blocks) {
       // shown behind us, so it maps to the pivot instant.
       const ahead = cur >= 0 && i > cur;
       return {
-        i, done: true, early: b.planMinutes <= 0,
+        i, done: true, early: b.planMinutes <= 0, ahead,
         m0: ahead ? pivot : Math.min(b.planStart, pivot),
         m1: ahead ? pivot : Math.min(end(b), pivot),
         minutes: Math.max(b.planMinutes, b.minutes),
       };
     }),
-    ...open.map((i) => ({ i, done: false, early: false, m0: blocks[i].planStart, m1: end(blocks[i]), minutes: blocks[i].planMinutes })),
+    ...open.map((i) => ({ i, done: false, early: false, ahead: false, m0: blocks[i].planStart, m1: end(blocks[i]), minutes: blocks[i].planMinutes })),
   ];
   const closeMin = open.length ? end(blocks[open[open.length - 1]]) : pivot;
   return { items, pivot, closeMin };
@@ -123,26 +123,48 @@ export function ribbonItems(blocks) {
 // exact part (task in progress, pending tasks), then the closing up to the end of the
 // content (free time, deadline, overtime, and room so they can sit under the marker).
 // Same contract as ribbonWindow (which it reduces to when nothing is done), plus items/closeX.
-export function ribbonTrack({ blocks, viewW, windowMin, followAt, planMin, nowMin, preMaxMin, doneMinPx = 0 }) {
+//
+// Tasks marked done AHEAD of the task in progress (their slot has not come yet: `ahead`) are
+// kept in sight, whole, between `edgePx` (the left edge of the window that is not clearly
+// visible: fade) and the marker. When the task in progress has already run longer than
+// what is left of that room, its ELAPSED part (behind the marker) is drawn compressed
+// (`squeeze` px less, `elapsedW` px wide) — a visual record, like the done blocks — and when
+// they are too big for the room even so, the ahead blocks themselves share it (≥ doneMinPx
+// each; with too many of them the leftmost ones go past the edge). From the marker on the
+// ribbon stays exact (remaining minutes of the task in progress, pending tasks, deadline).
+// Once the plan reaches their slot they are plain past done tasks and scroll away.
+export function ribbonTrack({ blocks, viewW, windowMin, followAt, planMin, nowMin, preMaxMin, doneMinPx = 0, edgePx = 0 }) {
   const perMin = viewW / windowMin;
   const anchor = viewW * followAt;
   const { items, pivot, closeMin } = ribbonItems(blocks);
+  const cur = blocks.findIndex((b) => b.isCurrent);
   const pre = Math.min(Math.max(0, -nowMin), preMaxMin);
   const markMin = Math.max(nowMin, -pre);
-  const doneW = items.filter((it) => it.done).reduce((s, it) => s + Math.max(it.minutes * perMin, doneMinPx), 0);
+  const natural = (it) => Math.max(it.minutes * perMin, doneMinPx);
+  const room = Math.max(0, anchor - edgePx);
+  const ahead = items.filter((it) => it.ahead);
+  const aheadNat = ahead.reduce((s, it) => s + natural(it), 0);
+  const aheadSizes = aheadNat > room ? layoutByLength(ahead.map((it) => it.minutes), { length: room, minSize: doneMinPx }).sizes : ahead.map(natural);
+  const aheadW = new Map(ahead.map((it, k) => [it.i, aheadSizes[k]]));
+  const elapsed = cur >= 0 ? Math.max(0, nowMin - pivot) : 0; // minutes of the task in progress behind the marker
+  const elapsedW = ahead.length ? Math.min(elapsed * perMin, Math.max(0, room - aheadSizes.reduce((s, w) => s + w, 0))) : elapsed * perMin;
+  const squeeze = elapsed * perMin - elapsedW;
+  const widthOf = (it) => (it.done ? aheadW.get(it.i) ?? natural(it) : Math.max(0, it.minutes) * perMin - (it.i === cur ? squeeze : 0));
+  const doneW = items.filter((it) => it.done).reduce((s, it) => s + widthOf(it), 0);
   const margin = Math.max(0, anchor - doneW);
   const doneEnd = margin + doneW;
   const xP = doneEnd + pre * perMin; // x of the pivot minute
   let x = margin;
   const placed = items.map((it) => {
     if (!it.done && x < xP) x = xP; // the wait before the start comes before the first pending task
-    const w = it.done ? Math.max(it.minutes * perMin, doneMinPx) : Math.max(0, it.minutes) * perMin;
+    const w = widthOf(it);
     const p = { ...it, x, w };
     x += w;
     return p;
   });
   const past = placed.filter((p) => p.done);
   const xOf = (min) => {
+    if (squeeze > 0 && min >= pivot) return min >= nowMin ? xP + elapsedW + (min - nowMin) * perMin : xP + ((min - pivot) / elapsed) * elapsedW;
     if (!past.length || min >= pivot - pre) return xP + (min - pivot) * perMin;
     for (const p of past) {
       if (min < p.m0) return p.x;
@@ -151,6 +173,7 @@ export function ribbonTrack({ blocks, viewW, windowMin, followAt, planMin, nowMi
     return doneEnd;
   };
   const minAt = (cx) => {
+    if (squeeze > 0 && cx >= xP) return cx >= xP + elapsedW ? nowMin + (cx - xP - elapsedW) / perMin : pivot + (elapsedW ? ((cx - xP) / elapsedW) * elapsed : 0);
     if (!past.length || cx >= doneEnd) return pivot + (cx - xP) / perMin;
     for (const p of past) if (cx < p.x + p.w) return cx < p.x ? p.m0 : p.m0 + ((cx - p.x) / p.w) * (p.m1 - p.m0);
     return pivot;
@@ -160,7 +183,7 @@ export function ribbonTrack({ blocks, viewW, windowMin, followAt, planMin, nowMi
   return {
     perMin, anchor, lead: margin, margin, contentW, markMin, early: nowMin < markMin,
     maxScroll: contentW - viewW,
-    items: placed, pivot, closeMin, closeX,
+    items: placed, pivot, closeMin, closeX, squeeze, elapsedW,
     xOf,
     // scrollLeft that puts `min` under the marker, and the minute under it for a scrollLeft.
     scrollFor: (min) => xOf(min) - anchor,

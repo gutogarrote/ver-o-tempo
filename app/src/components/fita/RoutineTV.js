@@ -38,6 +38,9 @@ const INTENT_MS = 1500;
 // its icon and name stay readable even when it took no time on the plan.
 export const DONE_MIN_W = 104;
 const FLAG_GAP = 8; // time label sits this far to the right of the NOW line
+// Width of the fades over the left/right edges of the ribbon ("there is more" hints). A task
+// marked done ahead of time is kept whole between the left fade and the marker (ribbonTrack).
+export const FADE_W = 36;
 
 // Scale the fixed 1440×810 stage to fit any TV / window, letterboxed.
 function useStageScale() {
@@ -78,8 +81,10 @@ function Pill({ on, onClick, children }) {
 }
 
 // Done tasks (see ribbonItems) sit before the task in progress, faded, sized by their minutes;
-// `early` (done ahead of time, no planned time left) adds a dashed frame.
-function TaskBlock({ t, i, v, width, radius, early, onJump }) {
+// `early` (done ahead of time, no planned time left) adds a dashed frame. `elapsedW`: px of
+// the task in progress already behind the NOW marker (darkened); striped when that part is
+// drawn compressed to keep a task just marked done in sight (`squeezed`, see ribbonTrack).
+function TaskBlock({ t, i, v, width, radius, early, elapsedW, squeezed, onJump }) {
   const ring = t.isCurrent && !v.overtime;
   if (width <= 0) return <div data-testid="tv-block" data-index={i} style={{ flex: 'none', width: 0 }} />;
   return (
@@ -102,7 +107,14 @@ function TaskBlock({ t, i, v, width, radius, early, onJump }) {
         title={`${t.name} — ${t.shownMinutes} min`}
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', background: 'transparent', border: 0, padding: 0, cursor: 'pointer', font: 'inherit' }}
       >
-        <div style={{ position: 'absolute', inset: '0 auto 0 0', width: `${t.isCurrent ? v.currentPct : 0}%`, background: 'rgba(0,0,0,.22)' }} />
+        <div
+          data-testid={t.isCurrent ? 'tv-elapsed' : undefined}
+          data-squeezed={t.isCurrent && squeezed ? 'true' : undefined}
+          style={{
+            position: 'absolute', inset: '0 auto 0 0', width: t.isCurrent ? elapsedW : 0,
+            background: t.isCurrent && squeezed ? 'repeating-linear-gradient(135deg, rgba(0,0,0,.26) 0 9px, rgba(0,0,0,.14) 9px 18px)' : 'rgba(0,0,0,.22)',
+          }}
+        />
         <div style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 7, padding: 8, textAlign: 'center', boxSizing: 'border-box' }}>
           <div style={{ fontSize: t.isCurrent ? 62 : 44, lineHeight: 1, animation: t.isCurrent ? 'bob 1.8s ease-in-out infinite' : 'none', opacity: t.done ? 0.5 : 1 }}>{t.icon}</div>
           <div style={{ font: `900 ${width < 140 ? 18 : 21}px/1.12 ${NUNITO}`, maxWidth: '100%', overflowWrap: 'anywhere', color: t.done ? C.doneInk : '#fff', textShadow: t.done ? 'none' : '0 2px 5px rgba(0,0,0,.3)' }}>{t.name}</div>
@@ -212,8 +224,13 @@ function useRibbonScroll(target) {
   };
 }
 
+const ctrlBtn = {
+  width: '100%', background: '#fff', color: C.ink, padding: '12px 8px', borderRadius: 999, border: 0,
+  font: `900 19px ${NUNITO}`, whiteSpace: 'nowrap', cursor: 'pointer', boxShadow: '0 3px 0 rgba(0,0,0,.18)',
+};
+
 const fade = (side) => ({
-  position: 'absolute', top: 0, bottom: 0, [side]: 0, width: 36, zIndex: 5, pointerEvents: 'none',
+  position: 'absolute', top: 0, bottom: 0, [side]: 0, width: FADE_W, zIndex: 5, pointerEvents: 'none',
   borderRadius: side === 'left' ? '30px 0 0 30px' : '0 30px 30px 0',
   background: `linear-gradient(to ${side === 'left' ? 'right' : 'left'}, ${C.bg}, rgba(255,246,233,0))`,
   display: 'flex', alignItems: 'center', justifyContent: side === 'left' ? 'flex-start' : 'flex-end',
@@ -226,8 +243,12 @@ export default function RoutineTV({ v, closing, clock, startLabel, endLabel, isM
   const agora = agoraColors({ urgent: v.urgent, overtime: ot, color: v.current.color });
   // Done tasks first (visual record), then the task in progress and the pending ones on an
   // exact scale (PLANNED minutes), then the closing; the marker stays at NOW_X.
-  const win = ribbonTrack({ blocks: v.blocks, viewW: RIBBON_W, windowMin: WINDOW_MIN, followAt: FOLLOW_AT, planMin: v.planEndMin, nowMin: v.nowElapsed, preMaxMin: PRE_MAX_MIN, doneMinPx: DONE_MIN_W });
+  const win = ribbonTrack({ blocks: v.blocks, viewW: RIBBON_W, windowMin: WINDOW_MIN, followAt: FOLLOW_AT, planMin: v.planEndMin, nowMin: v.nowElapsed, preMaxMin: PRE_MAX_MIN, doneMinPx: DONE_MIN_W, edgePx: FADE_W });
+  const nowX = win.xOf(v.nowElapsed);
   const scroll = useRibbonScroll(win.scrollFor(win.markMin));
+  // Marking a task (often reached by scrolling ahead by hand) brings the ribbon back to now:
+  // the task just marked is shown right behind the marker, so it has to be in view.
+  const toggleDone = (i) => { scroll.follow(); onToggleDone(i); };
   const shown = win.items.filter((it) => it.w > 0);
   const dots = dotCenters(shown);
   const firstShown = shown.length ? shown[0].i : -1;
@@ -312,11 +333,11 @@ export default function RoutineTV({ v, closing, clock, startLabel, endLabel, isM
                   <div data-testid="tv-deadline" style={{ position: 'absolute', top: 0, bottom: 0, left: win.xOf(v.planEndMin) - 2, width: 0, borderLeft: `4px dashed ${C.muted}`, pointerEvents: 'none' }} />
                   {shown.map((it) => (
                     <div key={v.blocks[it.i].id ?? it.i} style={{ position: 'absolute', top: 0, bottom: 0, left: it.x, display: 'flex' }}>
-                      <TaskBlock t={v.blocks[it.i]} i={it.i} v={v} width={it.w} radius={it.i === firstShown ? '30px 0 0 30px' : 0} early={it.early} onJump={onJump} />
+                      <TaskBlock t={v.blocks[it.i]} i={it.i} v={v} width={it.w} radius={it.i === firstShown ? '30px 0 0 30px' : 0} early={it.early} elapsedW={Math.min(it.w, Math.max(0, nowX - it.x))} squeezed={win.squeeze > 0} onJump={onJump} />
                     </div>
                   ))}
                   {shown.map((it, k) => (
-                    <CompletionDot key={v.blocks[it.i].id ?? it.i} t={v.blocks[it.i]} i={it.i} left={dots[k]} zero={it.early} onToggleDone={onToggleDone} />
+                    <CompletionDot key={v.blocks[it.i].id ?? it.i} t={v.blocks[it.i]} i={it.i} left={dots[k]} zero={it.early} onToggleDone={toggleDone} />
                   ))}
                 </div>
               </div>
@@ -345,20 +366,16 @@ export default function RoutineTV({ v, closing, clock, startLabel, endLabel, isM
               {more.right && <div data-testid="tv-more-right" style={fade('right')}>›</div>}
             </div>
 
-            <div style={{
-              position: 'relative', flex: 'none', width: CLOSE_W, boxSizing: 'border-box', borderRadius: 30, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5,
-              padding: '12px 8px', textAlign: 'center', transition: 'background .4s',
-              background: ot ? hatch(closing.color, 16) : 'transparent',
-              border: `4px dashed ${ot ? '#fff' : 'rgba(154,134,107,.4)'}`,
-              boxShadow: ot ? '0 8px 0 rgba(0,0,0,.07)' : 'none',
-            }}>
-              <div style={{ fontSize: ot ? 50 : 38, lineHeight: 1, animation: 'bob 2.6s ease-in-out infinite', opacity: ot ? 1 : 0.5 }}>{closing.icon}</div>
-              <div style={{ font: `900 ${ot ? 21 : 19}px/1.12 ${NUNITO}`, color: ot ? '#fff' : C.muted, textShadow: ot ? '0 2px 5px rgba(0,0,0,.3)' : 'none' }}>{closing.name}</div>
-              <div style={{ font: `800 15px ${NUNITO}`, color: ot ? 'rgba(255,255,255,.95)' : C.muted }}>{v.closeSub}</div>
-              <button onClick={onExtend} aria-label={`Mais 5 minutos até ${closing.name}`} style={{ marginTop: 4, background: '#fff', color: C.ink, padding: '7px 14px', borderRadius: 999, border: 0, font: `900 17px ${NUNITO}`, whiteSpace: 'nowrap', cursor: 'pointer', boxShadow: '0 3px 0 rgba(0,0,0,.18)' }}>+5 min</button>
-              {ot && (
-                <button onClick={onReset} style={{ marginTop: 4, background: '#fff', color: C.ink, padding: '7px 14px', borderRadius: 999, border: 0, font: `900 17px ${NUNITO}`, whiteSpace: 'nowrap', cursor: 'pointer', boxShadow: '0 3px 0 rgba(0,0,0,.18)' }}>↺ Recomeçar</button>
-              )}
+            {/* Controls of the closing. The closing itself (icon, name) lives only in the ribbon,
+                right after the last task, so it is never shown twice. */}
+            <div
+              data-testid="tv-closing-controls"
+              role="group"
+              aria-label={`Controles de ${closing.name}`}
+              style={{ flex: 'none', width: CLOSE_W, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}
+            >
+              <button onClick={onExtend} aria-label={`Mais 5 minutos até ${closing.name}`} style={ctrlBtn}>+5 min</button>
+              {ot && <button onClick={onReset} style={ctrlBtn}>↺ Recomeçar</button>}
             </div>
           </div>
 
