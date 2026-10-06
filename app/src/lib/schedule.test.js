@@ -1,5 +1,5 @@
 import {
-  MIN_MS, completeTask, currentIndex, defaultPlan, extendDeadline, jumpTo, originalMs,
+  MIN_MS, completeTask, currentIndex, defaultPlan, extendDeadline, jumpTo, originalMs, restartPlan,
   splitCapped, splitProportional, toggleTaskDone,
 } from './schedule';
 import { buildPlanView, closingFor } from './routineView';
@@ -352,5 +352,34 @@ describe('robustness', () => {
     expect(jumpTo(empty, [], 0, at(20, 0))).toBe(empty);
     const ev = buildPlanView({ tasks: [], plan: empty, nowMs: at(20, 0), closing: closingFor('evening'), label: String });
     expect(ev.countdown).not.toMatch(/NaN/);
+  });
+});
+
+describe('restartPlan (deadline changed by hand / routine saved): done marks are kept', () => {
+  const M = 60000;
+  const tasks = [20, 20, 10, 10].map((minutes, i) => ({ id: i + 1, minutes }));
+  const total = (p) => p.segs.reduce((s, x) => s + (x.end - x.start), 0);
+
+  test('nothing marked: same as the plain schedule', () => {
+    expect(restartPlan(tasks, 100 * M, 50 * M, () => false)).toEqual(defaultPlan(tasks, 100 * M));
+  });
+
+  test('a marked future task stays done with no time; the deadline is the new one', () => {
+    // New deadline 100 → starts at 40; now 45: task 0 in progress, task 2 marked.
+    const p = restartPlan(tasks, 100 * M, 45 * M, (t) => t.id === 3);
+    expect(p.done).toEqual([false, false, true, false]);
+    expect(p.endMs).toBe(100 * M);
+    expect(p.segs[2].end - p.segs[2].start).toBe(0);
+    expect(p.segs[0].start).toBe(40 * M); // task 0 keeps its start
+    expect(total(p)).toBe(60 * M);
+    expect(p.segs[3].end).toBe(100 * M);
+  });
+
+  test('a marked task in progress ends now; a marked task already behind stays marked', () => {
+    const p = restartPlan(tasks, 100 * M, 65 * M, (t) => t.id === 1 || t.id === 2);
+    expect(p.done).toEqual([true, true, false, false]);
+    expect(p.segs[1].end).toBe(65 * M); // task 1 was in progress at 65: ends now
+    expect(p.segs[3].end).toBe(100 * M);
+    expect(total(p)).toBe(60 * M);
   });
 });

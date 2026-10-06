@@ -217,6 +217,26 @@ export function extendDeadline(plan, tasks, nowMs, ms = EXTEND_MS) {
   return { ...plan, endMs: plan.endMs + ms, segs };
 }
 
+// A fresh schedule ending at endMs (what a deadline changed by hand gives) that keeps the
+// tasks the parents marked done (`marked(task, i)`): each is completed again at nowMs, in
+// order, by the same rules as the dot (completeTask), so its time goes to the pending tasks;
+// a marked task already behind us just stays marked. Done marks are facts about the
+// evening; the deadline is only a plan, so changing it never undoes them.
+export function restartPlan(tasks, endMs, nowMs, marked) {
+  let plan = defaultPlan(tasks, endMs);
+  (tasks || []).forEach((t, i) => {
+    if (!marked(t, i)) return;
+    if (isTaskDone(plan, i, nowMs)) {
+      const done = plan.done.slice();
+      done[i] = true;
+      plan = { ...plan, done };
+    } else {
+      plan = completeTask(plan, tasks, i, nowMs);
+    }
+  });
+  return plan;
+}
+
 // The completion dot: marks a pending task done; on a done task it undoes the mark.
 // Undoing a marked future task returns it to the queue (see unmarkFuture); undoing a task
 // that is already behind us means "redo it": same as jumping to it.

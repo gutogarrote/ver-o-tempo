@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import RoutineTV from '../components/fita/RoutineTV';
 import RoutinePhone from '../components/fita/RoutinePhone';
 import ParentMenu from '../components/fita/ParentMenu';
@@ -6,11 +6,12 @@ import DefaultRoutineEditor from '../components/DefaultRoutineEditor';
 import RoutineEditor from '../components/RoutineEditor';
 import { OVERTIME_WINDOW_MIN, computeElapsed, hhmm, sumMinutes, toToday } from '../lib/timeline';
 import { buildPlanView, closingFor } from '../lib/routineView';
-import { MIN_MS, defaultPlan, extendDeadline, jumpTo, toggleTaskDone } from '../lib/schedule';
+import { MIN_MS, defaultPlan, extendDeadline, jumpTo, restartPlan, toggleTaskDone } from '../lib/schedule';
 
 // Phones and portrait screens get the vertical ribbon (2a); landscape gets the TV stage (1a).
 const PHONE_QUERY = '(max-width: 767px), (max-aspect-ratio: 1/1)';
 const EMPTY_TASKS = [];
+const taskKey = (t, i) => (t && t.id != null ? `id:${t.id}` : `#${i}`);
 
 function useIsPhone() {
   const [isPhone, setIsPhone] = useState(() => window.matchMedia?.(PHONE_QUERY).matches ?? false);
@@ -42,10 +43,13 @@ export default function Home({ routines, setRoutines, currentTime }) {
   // Adjusted schedule of the current run (done marks, early finishes, +5 min, jumps).
   // In memory only, like the deadline itself; null = plain schedule from the deadline.
   const [session, setSession] = useState(null);
+  const tasksRef = useRef(tasks);
+  tasksRef.current = tasks;
 
-  // Reset when routine changes
+  // Reset when routine changes. A session rebuilt for these very tasks when the routine was
+  // saved (saveDefaults/saveCurrent, keeping done marks) survives; anything else starts clean.
   useEffect(() => {
-    setSession(null);
+    setSession((s) => (s && s.routineId === routineId && s.tasks === tasksRef.current ? s : null));
     setUseDeadline(true);
     setDeadlineStr(routine.endTime || '23:59');
     // Default start time aligns with deadline - total
@@ -86,14 +90,34 @@ export default function Home({ routines, setRoutines, currentTime }) {
   const onToggleDone = (i) => applyPlan(toggleTaskDone(plan, tasks, i, nowMs, { keepDeadline: useDeadline }));
   const onExtend = () => applyPlan(extendDeadline(plan, tasks, nowMs));
 
-  // Parents changing the deadline/mode by hand start from a clean schedule.
-  const setDeadlineByHand = (v) => { setSession(null); setDeadlineStr(v); };
-  const setUseDeadlineByHand = (v) => { setSession(null); setUseDeadline(v); };
+  // Parents changing the deadline/mode by hand (or saving the routine) start from a fresh
+  // schedule for the new deadline, but tasks they marked done stay done (restartPlan).
+  const marks = new Set(plan.done.map((d, i) => (d ? taskKey(tasks[i], i) : null)).filter(Boolean));
+  function restartFor(nextRoutineId, nextTasks, endMs) {
+    if (!marks.size) return null;
+    return { routineId: nextRoutineId, tasks: nextTasks, plan: restartPlan(nextTasks, endMs, nowMs, (t, i) => marks.has(taskKey(t, i))) };
+  }
+  const endFor = ({ deadline = deadlineStr, deadlineMode = useDeadline, start = startTime, total = totalMinutes } = {}) =>
+    computeElapsed({ mode: deadlineMode ? 'deadline' : 'start', startTime: start, deadline: toToday(deadline), now, totalMinutes: total }).endsAt.getTime();
+  const setDeadlineByHand = (v) => { setSession(restartFor(routineId, tasks, endFor({ deadline: v }))); setDeadlineStr(v); };
+  const setUseDeadlineByHand = (v) => { setSession(restartFor(routineId, tasks, endFor({ deadlineMode: v }))); setUseDeadline(v); };
+  // After a save, Home re-renders with the saved routine: same deadline rules as the reset
+  // effect above when its end time or length changed, the current ones otherwise.
+  function keepMarksAfterSave(saved) {
+    const nextTasks = saved?.tasks || EMPTY_TASKS;
+    const total = sumMinutes(nextTasks);
+    const reset = saved?.endTime !== routine.endTime || total !== totalMinutes;
+    const endMs = reset
+      ? endFor({ deadline: saved?.endTime || '23:59', deadlineMode: true, total })
+      : endFor({ total });
+    setSession(restartFor(routineId, nextTasks, endMs));
+  }
 
   function saveDefaults(updated) {
     try {
       localStorage.setItem('routines', JSON.stringify(updated));
     } catch (_) {}
+    keepMarksAfterSave(updated?.[todayKey]?.[routineId]);
     setRoutines(updated);
     setIsEditingDefaults(false);
   }
@@ -109,6 +133,7 @@ export default function Home({ routines, setRoutines, currentTime }) {
     try {
       localStorage.setItem('routines', JSON.stringify(next));
     } catch (_) {}
+    keepMarksAfterSave(updatedRoutine);
     setRoutines(next);
     setIsEditingCurrent(false);
   }

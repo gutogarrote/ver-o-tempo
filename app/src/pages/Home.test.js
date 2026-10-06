@@ -1,3 +1,4 @@
+import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import Home from './Home';
 
@@ -114,4 +115,112 @@ test('phone layout: dots and +5 work too; marking does not rewrite saved routine
   expect(setRoutines).not.toHaveBeenCalled();
   expect(localStorage.getItem('routines')).toBeNull();
   expect(routines.monday.evening.tasks.map((t) => t.minutes)).toEqual([20, 20, 10, 10]);
+});
+
+// marca-feito-scroll-fix follow-up -------------------------------------------------------
+
+describe('parents menu (✨)', () => {
+  const openMenu = () => fireEvent.click(screen.getByRole('button', { name: 'Menu dos pais' }));
+  const panel = () => screen.queryByRole('dialog', { name: 'Menu dos pais' });
+
+  test('closes on a click outside it, not when its controls are used', () => {
+    renderEvening(today(19, 40));
+    openMenu();
+    expect(panel()).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Menu dos pais' })).toHaveAttribute('aria-expanded', 'true');
+    // Using the controls inside keeps it open.
+    fireEvent.pointerDown(screen.getByLabelText('Hora limite'));
+    fireEvent.change(screen.getByLabelText('Hora limite'), { target: { value: '20:45' } });
+    fireEvent.pointerDown(panel());
+    expect(panel()).toBeInTheDocument();
+    // A click anywhere else closes it (no need to hit ✨ again).
+    fireEvent.pointerDown(screen.getByText('Rotina da Nina'));
+    expect(panel()).toBeNull();
+    expect(screen.getByRole('button', { name: 'Menu dos pais' })).toHaveAttribute('aria-expanded', 'false');
+    // ✨ still toggles.
+    openMenu();
+    openMenu();
+    expect(panel()).toBeNull();
+  });
+
+  test('Escape closes it and gives focus back to ✨; keyboard opening focuses the first item; Tab out closes', () => {
+    renderEvening(today(19, 40));
+    const badge = screen.getByRole('button', { name: 'Menu dos pais' });
+    badge.focus();
+    fireEvent.click(badge, { detail: 0 }); // keyboard activation (Enter/Space) has detail 0
+    expect(screen.getByRole('button', { name: '✏️ Editar esta rotina' })).toHaveFocus();
+    fireEvent.keyDown(document.activeElement, { key: 'Escape' });
+    expect(panel()).toBeNull();
+    expect(badge).toHaveFocus();
+    fireEvent.click(badge, { detail: 0 });
+    const outside = screen.getByRole('button', { name: /Noite/ });
+    fireEvent.blur(screen.getByRole('button', { name: '✏️ Editar esta rotina' }), { relatedTarget: outside });
+    expect(panel()).toBeNull();
+  });
+});
+
+describe('done marks survive deadline changes and saves', () => {
+  const openMenu = () => fireEvent.click(screen.getByRole('button', { name: 'Menu dos pais' }));
+
+  test.each([false, true])('mark → menu → change the deadline: still done (phone: %s)', (phone) => {
+    renderEvening(today(19, 35), { phone });
+    fireEvent.click(dot('Dentes')); // future task, done ahead of time
+    fireEvent.click(dot('Banho')); // the task in progress
+    openMenu();
+    fireEvent.change(screen.getByLabelText('Hora limite'), { target: { value: '20:45' } });
+    expect(dot('Dentes')).toHaveAttribute('aria-pressed', 'true');
+    expect(dot('Banho')).toHaveAttribute('aria-pressed', 'true');
+    expect(dot('Jantar')).toHaveAttribute('aria-pressed', 'false');
+    if (!phone) expect(screen.getByText('TERMINA 20:45')).toBeInTheDocument();
+    // Fresh schedule for 20:45 (starts 19:45 → Banho would be in progress at 19:35… it is
+    // done, so Jantar runs now) with the marked tasks' time given to the others.
+    fireEvent.change(screen.getByLabelText('Hora limite'), { target: { value: '20:15' } });
+    expect(dot('Dentes')).toHaveAttribute('aria-pressed', 'true');
+    expect(dot('Banho')).toHaveAttribute('aria-pressed', 'true');
+    // Turning the deadline off/on keeps them too.
+    fireEvent.click(screen.getByRole('checkbox'));
+    expect(dot('Dentes')).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(screen.getByRole('checkbox'));
+    expect(dot('Dentes')).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('changing the deadline with nothing marked still gives the plain schedule', () => {
+    renderEvening(today(19, 40));
+    openMenu();
+    fireEvent.change(screen.getByLabelText('Hora limite'), { target: { value: '20:40' } });
+    expect(screen.getByText('TERMINA 20:40')).toBeInTheDocument();
+    expect(screen.getByText('Termina às 20:00')).toBeInTheDocument(); // Banho 19:40 → 20:00
+  });
+
+  function Stateful({ now }) {
+    const [state, setState] = React.useState(routines);
+    return <Home routines={state} setRoutines={setState} currentTime={now} />;
+  }
+
+  test('mark → edit the routine → save: the task is still done', () => {
+    setPhone(false);
+    render(<Stateful now={today(19, 40)} />);
+    fireEvent.click(screen.getByRole('button', { name: /Noite/ }));
+    fireEvent.click(dot('Dentes'));
+    openMenu();
+    fireEvent.click(screen.getByRole('button', { name: '✏️ Editar esta rotina' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save Routine' }));
+    expect(dot('Dentes')).toHaveAttribute('aria-pressed', 'true');
+    expect(dot('Banho')).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByText('TERMINA 20:30')).toBeInTheDocument();
+  });
+
+  test('mark → change the end time in "Rotinas" → save: the task is still done, new deadline applies', () => {
+    setPhone(false);
+    render(<Stateful now={today(19, 40)} />);
+    fireEvent.click(screen.getByRole('button', { name: /Noite/ }));
+    fireEvent.click(dot('Banho'));
+    openMenu();
+    fireEvent.click(screen.getByRole('button', { name: '⚙️ Rotinas' }));
+    const times = screen.getAllByDisplayValue('20:30');
+    fireEvent.change(times[0], { target: { value: '20:50' } });
+    fireEvent.click(screen.getByRole('button', { name: /Salvar/ }));
+    expect(screen.getByText('TERMINA 20:50')).toBeInTheDocument();
+    expect(dot('Banho')).toHaveAttribute('aria-pressed', 'true');
+  });
 });

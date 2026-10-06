@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { C, FREDOKA, NUNITO, agoraColors, doneOverlay, hatch, statusStyle } from './theme';
-import { layoutExact, ribbonWindow, spreadDots } from '../../lib/trackLayout';
+import { ribbonTrack, spreadDots } from '../../lib/trackLayout';
 import { hhmm } from '../../lib/timeline';
 
 const STAGE_W = 1440;
@@ -30,6 +30,13 @@ export const FOLLOW_AT = 0.25;
 export const NOW_X = RIBBON_W * FOLLOW_AT;
 const PRE_MAX_MIN = 30; // before the start: show up to 30 min of wait before the first block
 export const MANUAL_HOLD_MS = 10000; // manual scroll pauses auto-follow for this long
+// A scroll counts as manual only this soon after the user touched the track (wheel, pointer,
+// key); any other scroll (browser clamping/restoring while the window or stage changes) is
+// undone, so the marker can never be left over the wrong minute.
+const INTENT_MS = 1500;
+// Done tasks are a visual record (not an exact clock): each keeps at least this width, so
+// its icon and name stay readable even when it took no time on the plan.
+export const DONE_MIN_W = 104;
 const FLAG_GAP = 8; // time label sits this far to the right of the NOW line
 
 // Scale the fixed 1440×810 stage to fit any TV / window, letterboxed.
@@ -52,7 +59,6 @@ const flagBox = {
   padding: '7px 16px', borderRadius: 999, font: `900 20px ${NUNITO}`, whiteSpace: 'nowrap',
   boxShadow: `0 0 0 4px ${C.bg}`,
 };
-const flag = { ...flagBox, position: 'absolute', top: FLAG_TOP, zIndex: 2 };
 
 function Pill({ on, onClick, children }) {
   return (
@@ -71,24 +77,22 @@ function Pill({ on, onClick, children }) {
   );
 }
 
-function TaskBlock({ t, i, v, width, radius, onJump }) {
+// Done tasks (see ribbonItems) sit before the task in progress, faded, sized by their minutes;
+// `early` (done ahead of time, no planned time left) adds a dashed frame.
+function TaskBlock({ t, i, v, width, radius, early, onJump }) {
   const ring = t.isCurrent && !v.overtime;
-  // A task with no time left (done ahead of time) has no width on the time scale; its dot
-  // (see CompletionDot) and a thin seam in its color stand for it.
-  if (width <= 0) {
-    return (
-      <div data-testid="tv-block" data-zero="true" style={{ position: 'relative', flex: 'none', width: 0 }}>
-        <div data-testid="tv-zero-seam" style={{ position: 'absolute', top: 0, bottom: 0, left: -3, width: 6, background: t.color, opacity: 0.75, pointerEvents: 'none' }} />
-      </div>
-    );
-  }
+  if (width <= 0) return <div data-testid="tv-block" data-index={i} style={{ flex: 'none', width: 0 }} />;
   return (
     <div
       data-testid="tv-block"
+      data-index={i}
+      data-done={t.done ? 'true' : undefined}
+      data-early={early ? 'true' : undefined}
       style={{
         position: 'relative', overflow: 'hidden', flex: 'none', width,
         background: t.color, borderRadius: radius,
         boxShadow: [`inset -3px 0 0 ${C.bg}`, t.done && doneOverlay(0.62), ring && 'inset 0 0 0 7px #fff'].filter(Boolean).join(','),
+        outline: early ? `3px dashed ${t.color}` : 'none', outlineOffset: -10,
         transition: 'box-shadow .3s',
       }}
     >
@@ -101,23 +105,19 @@ function TaskBlock({ t, i, v, width, radius, onJump }) {
         <div style={{ position: 'absolute', inset: '0 auto 0 0', width: `${t.isCurrent ? v.currentPct : 0}%`, background: 'rgba(0,0,0,.22)' }} />
         <div style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 7, padding: 8, textAlign: 'center', boxSizing: 'border-box' }}>
           <div style={{ fontSize: t.isCurrent ? 62 : 44, lineHeight: 1, animation: t.isCurrent ? 'bob 1.8s ease-in-out infinite' : 'none', opacity: t.done ? 0.5 : 1 }}>{t.icon}</div>
-          <div style={{ font: `900 ${width < 90 ? 18 : 21}px/1.12 ${NUNITO}`, color: t.done ? C.doneInk : '#fff', textShadow: t.done ? 'none' : '0 2px 5px rgba(0,0,0,.3)' }}>{t.name}</div>
-          <div style={{ font: `700 17px ${NUNITO}`, whiteSpace: 'nowrap', color: t.done ? 'rgba(58,48,38,.8)' : 'rgba(255,255,255,.92)' }}>{t.shownMinutes} min</div>
+          <div style={{ font: `900 ${width < 140 ? 18 : 21}px/1.12 ${NUNITO}`, maxWidth: '100%', overflowWrap: 'anywhere', color: t.done ? C.doneInk : '#fff', textShadow: t.done ? 'none' : '0 2px 5px rgba(0,0,0,.3)' }}>{t.name}</div>
+          <div style={{ font: `700 17px ${NUNITO}`, whiteSpace: 'nowrap', color: t.done ? 'rgba(58,48,38,.8)' : 'rgba(255,255,255,.92)' }}>{t.done ? '✓ ' : ''}{t.shownMinutes} min</div>
         </div>
       </button>
     </div>
   );
 }
 
-// Where each dot wants to be (px from the plan start): bottom-right corner of its block,
-// centered in narrow blocks, on the seam for blocks with no time. spreadDots then keeps
-// every dot whole and apart, without touching the time scale.
-export function dotCenters(layout) {
-  const want = layout.sizes.map((w, i) => {
-    const o = layout.offsets[i];
-    if (w >= NARROW_W) return o + w - DOT_INSET - DOT / 2;
-    return o + w / 2;
-  });
+// Where each dot wants to be (px, in display order): bottom-right corner of its block,
+// centered in narrow blocks. spreadDots then keeps every dot whole and apart, without
+// touching the time scale.
+export function dotCenters(items) {
+  const want = items.map(({ x, w }) => (w >= NARROW_W ? x + w - DOT_INSET - DOT / 2 : x + w / 2));
   return spreadDots(want, DOT_GAP);
 }
 
@@ -148,31 +148,68 @@ function CompletionDot({ t, i, left, zero, onToggleDone }) {
 // Horizontal scroll of the ribbon. Following: the track is scrolled so that the marker
 // (fixed at NOW_X) shows the current time. When the user scrolls by hand (wheel, drag,
 // keys) the follow pauses: `browse` holds that scrollLeft until MANUAL_HOLD_MS after the
-// last manual scroll or until "Agora" is pressed. Returns { ref, scrollLeft, browse, ... }.
+// last manual scroll or until "Agora" is pressed. Only scrolls right after user input on the
+// track count as manual (INTENT_MS); any other scroll while following is put back, and the
+// position is re-applied before paint on every render and again after the window resizes
+// (TV ↔ phone ↔ TV, rotation) or the page is shown again; a resize also ends browsing.
+// Returns { ref, scrollLeft, browse, ... }.
 function useRibbonScroll(target) {
   const ref = useRef(null);
   const [browse, setBrowse] = useState(null);
   const targetRef = useRef(target);
   targetRef.current = target;
-  useEffect(() => {
+  const browseRef = useRef(browse);
+  browseRef.current = browse;
+  const intentAt = useRef(-Infinity);
+  const put = useCallback((force) => {
     const el = ref.current;
-    if (el && browse === null && Math.abs(el.scrollLeft - target) > 0.5) el.scrollLeft = target;
-  });
+    if (el && browseRef.current === null && (force || Math.abs(el.scrollLeft - targetRef.current) > 0.5)) el.scrollLeft = targetRef.current;
+  }, []);
+  useLayoutEffect(() => put(false));
+  useEffect(() => {
+    let raf = 0;
+    const again = () => {
+      browseRef.current = null;
+      setBrowse(null);
+      put(true);
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => put(true));
+    };
+    const onVisible = () => { if (document.visibilityState !== 'hidden') again(); };
+    window.addEventListener('resize', again);
+    window.addEventListener('pageshow', again);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', again);
+      window.removeEventListener('pageshow', again);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [put]);
   useEffect(() => {
     if (browse === null) return undefined;
     const id = setTimeout(() => setBrowse(null), MANUAL_HOLD_MS);
     return () => clearTimeout(id);
   }, [browse]);
-  // Our own scrolling lands on the target; anything else is the user looking around.
+  const intent = () => { intentAt.current = performance.now(); };
   const onScroll = () => {
     const sl = ref.current.scrollLeft;
-    setBrowse(Math.abs(sl - targetRef.current) > 2 ? sl : null);
+    const off = Math.abs(sl - targetRef.current) > 2;
+    if (browseRef.current === null && performance.now() - intentAt.current > INTENT_MS) {
+      if (off) put(true); // not the user: back to the clock
+      return;
+    }
+    setBrowse(off ? sl : null);
   };
   const onWheel = (e) => {
+    intent();
     const el = ref.current;
     if (el && Math.abs(e.deltaY) > Math.abs(e.deltaX)) el.scrollLeft += e.deltaY;
   };
-  return { ref, onScroll, onWheel, browse, scrollLeft: browse ?? target, follow: () => setBrowse(null) };
+  return {
+    ref, onScroll, onWheel, onPointerDown: intent, onTouchStart: intent, onKeyDown: intent,
+    browse, scrollLeft: browse ?? target, follow: () => setBrowse(null),
+  };
 }
 
 const fade = (side) => ({
@@ -187,17 +224,16 @@ export default function RoutineTV({ v, closing, clock, startLabel, endLabel, isM
   const scale = useStageScale();
   const ot = v.overtime;
   const agora = agoraColors({ urgent: v.urgent, overtime: ot, color: v.current.color });
-  // Blocks follow the PLANNED minutes on a fixed scale; the marker stays at NOW_X.
-  const layout = layoutExact(v.blocks.map((b) => b.planMinutes), { perMin: PX_PER_MIN });
-  const win = ribbonWindow({ viewW: RIBBON_W, windowMin: WINDOW_MIN, followAt: FOLLOW_AT, planMin: v.planEndMin, nowMin: v.nowElapsed, preMaxMin: PRE_MAX_MIN });
+  // Done tasks first (visual record), then the task in progress and the pending ones on an
+  // exact scale (PLANNED minutes), then the closing; the marker stays at NOW_X.
+  const win = ribbonTrack({ blocks: v.blocks, viewW: RIBBON_W, windowMin: WINDOW_MIN, followAt: FOLLOW_AT, planMin: v.planEndMin, nowMin: v.nowElapsed, preMaxMin: PRE_MAX_MIN, doneMinPx: DONE_MIN_W });
   const scroll = useRibbonScroll(win.scrollFor(win.markMin));
-  const dots = dotCenters(layout);
-  const shown = v.blocks.map((_, i) => i).filter((i) => layout.sizes[i] > 0);
-  const radiusOf = (i) => {
-    const first = i === shown[0];
-    const last = i === shown[shown.length - 1];
-    return `${first ? 30 : 0}px ${last ? 30 : 0}px ${last ? 30 : 0}px ${first ? 30 : 0}px`;
-  };
+  const shown = win.items.filter((it) => it.w > 0);
+  const dots = dotCenters(shown);
+  const firstShown = shown.length ? shown[0].i : -1;
+  // The closing starts where the last task ends: lit once it is reached (all done, overtime).
+  const closingLit = ot || v.allDone;
+  const closingW = win.contentW - win.closeX;
   // The marker never moves on screen. Following, it shows the clock. While the user looks
   // elsewhere it shows the time under it (dashed, 👀) and offers to come back: the real
   // progress stays visible in the blocks (current block ring + darkened part).
@@ -205,10 +241,9 @@ export default function RoutineTV({ v, closing, clock, startLabel, endLabel, isM
   const underMin = win.minAt(scroll.scrollLeft);
   const underLabel = hhmm(new Date(v.startMs + underMin * 60000));
   const mode = browsing ? 'browse' : win.early ? 'early' : 'now';
-  const blocksEnd = win.lead + layout.total;
   const more = {
-    left: shown.length > 0 && scroll.scrollLeft > win.lead + 1,
-    right: shown.length > 0 && blocksEnd > scroll.scrollLeft + RIBBON_W + 1,
+    left: shown.length > 0 && scroll.scrollLeft > win.margin + 1,
+    right: shown.length > 0 && win.closeX > scroll.scrollLeft + RIBBON_W + 1,
   };
 
   return (
@@ -248,25 +283,40 @@ export default function RoutineTV({ v, closing, clock, startLabel, endLabel, isM
                 aria-label="Linha do tempo da rotina"
                 onScroll={scroll.onScroll}
                 onWheel={scroll.onWheel}
+                onPointerDown={scroll.onPointerDown}
+                onTouchStart={scroll.onTouchStart}
+                onKeyDown={scroll.onKeyDown}
                 style={{ height: '100%', width: '100%', overflowX: 'auto', overflowY: 'hidden', borderRadius: 30, background: C.track, boxShadow: '0 8px 0 rgba(0,0,0,.07)' }}
               >
                 <div data-testid="tv-content" style={{ position: 'relative', height: '100%', width: win.contentW }}>
                   {v.nowElapsed < 0 && (
-                    <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: win.lead - 48, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', font: `800 20px ${NUNITO}`, color: C.muted, whiteSpace: 'nowrap', pointerEvents: 'none' }}>
+                    <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: win.xOf(0) - 48, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', font: `800 20px ${NUNITO}`, color: C.muted, whiteSpace: 'nowrap', pointerEvents: 'none' }}>
                       começa às {startLabel} ›
                     </div>
                   )}
+                  {/* Closing ("Hora de dormir"/"Hora de sair"): right after the last task, to the end. */}
+                  <div
+                    data-testid="tv-closing"
+                    data-lit={closingLit ? 'true' : 'false'}
+                    style={{ position: 'absolute', top: 0, bottom: 0, left: win.closeX, width: closingW, background: closingLit ? `${closing.color}66` : `${closing.color}2e`, transition: 'background .4s' }}
+                  >
+                    <div style={{ position: 'sticky', left: NOW_X + 28, display: 'inline-flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, height: '100%', padding: '0 28px', boxSizing: 'border-box', textAlign: 'center', pointerEvents: 'none' }}>
+                      <div style={{ fontSize: closingLit ? 54 : 44, lineHeight: 1, animation: 'bob 2.6s ease-in-out infinite', opacity: closingLit ? 1 : 0.6 }}>{closing.icon}</div>
+                      <div style={{ font: `900 21px/1.12 ${NUNITO}`, whiteSpace: 'nowrap', color: closingLit ? C.ink : C.muted }}>{closing.name}</div>
+                      <div style={{ font: `800 17px ${NUNITO}`, whiteSpace: 'nowrap', color: C.muted }}>{v.closeSub}</div>
+                    </div>
+                  </div>
                   {ot && (
                     <div data-testid="tv-overtime" style={{ position: 'absolute', top: 0, bottom: 0, left: win.xOf(v.planEndMin), width: win.xOf(v.nowElapsed) - win.xOf(v.planEndMin), background: hatch(closing.color, 16), opacity: 0.55, pointerEvents: 'none' }} />
                   )}
                   <div data-testid="tv-deadline" style={{ position: 'absolute', top: 0, bottom: 0, left: win.xOf(v.planEndMin) - 2, width: 0, borderLeft: `4px dashed ${C.muted}`, pointerEvents: 'none' }} />
-                  <div style={{ position: 'absolute', top: 0, bottom: 0, left: win.lead, display: 'flex' }}>
-                    {v.blocks.map((t, i) => (
-                      <TaskBlock key={t.id ?? i} t={t} i={i} v={v} width={layout.sizes[i]} radius={radiusOf(i)} onJump={onJump} />
-                    ))}
-                  </div>
-                  {v.blocks.map((t, i) => (
-                    <CompletionDot key={t.id ?? i} t={t} i={i} left={win.lead + dots[i]} zero={layout.sizes[i] <= 0} onToggleDone={onToggleDone} />
+                  {shown.map((it) => (
+                    <div key={v.blocks[it.i].id ?? it.i} style={{ position: 'absolute', top: 0, bottom: 0, left: it.x, display: 'flex' }}>
+                      <TaskBlock t={v.blocks[it.i]} i={it.i} v={v} width={it.w} radius={it.i === firstShown ? '30px 0 0 30px' : 0} early={it.early} onJump={onJump} />
+                    </div>
+                  ))}
+                  {shown.map((it, k) => (
+                    <CompletionDot key={v.blocks[it.i].id ?? it.i} t={v.blocks[it.i]} i={it.i} left={dots[k]} zero={it.early} onToggleDone={onToggleDone} />
                   ))}
                 </div>
               </div>
@@ -297,12 +347,11 @@ export default function RoutineTV({ v, closing, clock, startLabel, endLabel, isM
 
             <div style={{
               position: 'relative', flex: 'none', width: CLOSE_W, boxSizing: 'border-box', borderRadius: 30, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5,
-              padding: ot ? '52px 8px 12px' : '12px 8px', textAlign: 'center', transition: 'background .4s',
+              padding: '12px 8px', textAlign: 'center', transition: 'background .4s',
               background: ot ? hatch(closing.color, 16) : 'transparent',
               border: `4px dashed ${ot ? '#fff' : 'rgba(154,134,107,.4)'}`,
               boxShadow: ot ? '0 8px 0 rgba(0,0,0,.07)' : 'none',
             }}>
-              {ot && <div style={{ ...flag, left: '50%', transform: 'translateX(-50%)' }}>{clock}</div>}
               <div style={{ fontSize: ot ? 50 : 38, lineHeight: 1, animation: 'bob 2.6s ease-in-out infinite', opacity: ot ? 1 : 0.5 }}>{closing.icon}</div>
               <div style={{ font: `900 ${ot ? 21 : 19}px/1.12 ${NUNITO}`, color: ot ? '#fff' : C.muted, textShadow: ot ? '0 2px 5px rgba(0,0,0,.3)' : 'none' }}>{closing.name}</div>
               <div style={{ font: `800 15px ${NUNITO}`, color: ot ? 'rgba(255,255,255,.95)' : C.muted }}>{v.closeSub}</div>

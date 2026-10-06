@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import Home from '../../pages/Home';
-import { DOT_HIT, MIN_ROW_H, PX_PER_MIN } from './RoutinePhone';
-import { DOT, DOT_GAP, MANUAL_HOLD_MS, NOW_X, PX_PER_MIN as TV_PX_PER_MIN, RIBBON_W, WINDOW_MIN } from './RoutineTV';
+import { CLOSE_MIN_H, DOT_HIT, MIN_ROW_H, PX_PER_MIN } from './RoutinePhone';
+import { DONE_MIN_W, DOT, DOT_GAP, MANUAL_HOLD_MS, NOW_X, PX_PER_MIN as TV_PX_PER_MIN, RIBBON_W, WINDOW_MIN } from './RoutineTV';
 
 // marca-feito-scroll(-fix): blocks/rows follow the PLANNED (redistributed) minutes. TV: the
 // NOW marker is an overlay fixed at 25% of the visible ribbon, the track (40 min per
@@ -149,6 +149,7 @@ describe('TV: fixed NOW marker over a 40-minute window (70-minute routine)', () 
     jest.useFakeTimers();
     try {
       const { tick } = renderAt(at(19, 25), false);
+      fireEvent.pointerDown(track()); // the user grabs the track…
       track().scrollLeft = 30 * PPM; // look at 19:50 (Jantar)
       fireEvent.scroll(track());
       expectMarkerFixed();
@@ -166,6 +167,7 @@ describe('TV: fixed NOW marker over a 40-minute window (70-minute routine)', () 
       expect(underMin()).toBeCloseTo(6, 6);
       expect(flag().textContent).toBe('19:26');
       // Or it comes back by itself 10 s after the last manual scroll.
+      fireEvent.keyDown(track(), { key: 'ArrowLeft' });
       track().scrollLeft = 10;
       fireEvent.scroll(track());
       expect(line().dataset.mode).toBe('browse');
@@ -188,33 +190,118 @@ describe('TV: fixed NOW marker over a 40-minute window (70-minute routine)', () 
     expectMarkerFixed();
   });
 
-  test('a task marked done ahead of time takes no time on screen: still 40 min per window, dot kept', () => {
+  test('a scroll the user did not make (browser clamping/restoring) is undone: the marker stays on now', () => {
+    renderAt(at(19, 25), false);
+    const follow = track().scrollLeft;
+    track().scrollLeft = follow + 900; // e.g. the browser moved it while the window changed
+    fireEvent.scroll(track());
+    expect(track().scrollLeft).toBeCloseTo(follow, 6);
+    expect(line().dataset.mode).toBe('now');
+    expect(underMin()).toBeCloseTo(5, 6);
+  });
+
+  // marca-feito-scroll-fix follow-up: a task marked done ahead of time is shown behind the
+  // marker, with its name/icon and a width suggesting its minutes; the exact part (task in
+  // progress, pending tasks) keeps the 40-min scale; undoing puts it back in place.
+  const order = () => screen.getAllByTestId('tv-block').map((b) => Number(b.dataset.index));
+  const blockX = (i) => {
+    const b = screen.getAllByTestId('tv-block').find((el) => Number(el.dataset.index) === i);
+    return { x: px(b.parentElement.style.left), w: px(b.style.width), el: b };
+  };
+  // Plan minute under the marker, measured from the block of a pending task whose plan start is known.
+  const underFrom = (i, planStart) => planStart + (track().scrollLeft + NOW_X - blockX(i).x) / PPM;
+
+  test('a task marked done ahead of time moves behind the marker, keeps name/icon and a size of its minutes', () => {
     const { tick } = renderAt(at(19, 25), false);
     fireEvent.click(dot('C'));
-    // 10 min shared 20:20:10:10 → A 23:20, B 23:20, D 11:40, E 11:40, C 0
-    const w = widths();
-    [70 / 3, 70 / 3, 0, 35 / 3, 35 / 3].forEach((m, i) => expect(w[i]).toBeCloseTo(m * PPM, 6));
-    expect(w.reduce((a, b) => a + b, 0)).toBeCloseTo(70 * PPM, 6); // same scale as before
-    expect(screen.getByTestId('tv-zero-seam')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Pular para A' })).toHaveAttribute('title', 'A — 23 min');
+    // C first (done), then A (in progress), B, D, E — on the exact scale.
+    expect(order()).toEqual([2, 0, 1, 3, 4]);
+    const c = blockX(2);
+    expect(c.el.dataset.done).toBe('true');
+    expect(c.el.dataset.early).toBe('true');
+    expect(c.w).toBeCloseTo(10 * PPM, 6); // its original 10 min, not a 0-px line
+    expect(c.el).toHaveTextContent('C');
+    expect(c.el).toHaveTextContent('🪥');
+    expect(c.el).toHaveTextContent('✓ 10 min');
+    // 10 min shared 20:20:10:10 → A 23:20, B 23:20, D 11:40, E 11:40: same px per minute.
+    [[0, 70 / 3], [1, 70 / 3], [3, 35 / 3], [4, 35 / 3]].forEach(([i, m]) => expect(blockX(i).w).toBeCloseTo(m * PPM, 6));
+    expect(blockX(0).x).toBeCloseTo(c.x + c.w, 6); // adjacent, no overlap
+    // C is entirely left of the marker; the minute under the marker is still now (A started 19:20).
+    expect(c.x + c.w - track().scrollLeft).toBeLessThanOrEqual(NOW_X + 1e-6);
+    expectMarkerFixed();
+    expect(underFrom(0, 0)).toBeCloseTo(5, 6);
     expect(screen.getByText('Termina às 19:43')).toBeInTheDocument();
-    expect(screen.getByText('TERMINA 20:30')).toBeInTheDocument();
-    // The C dot sits on its seam (between B and D), whole, apart from the others.
-    const centers = ['A', 'B', 'C', 'D', 'E'].map((n) => px(dot(n).style.left) + DOT / 2 - lead());
-    expect(Math.abs(centers[2] - (140 / 3) * PPM)).toBeLessThan(DOT_GAP);
-    for (let i = 1; i < 5; i++) expect(centers[i] - centers[i - 1]).toBeGreaterThanOrEqual(DOT_GAP - 1e-6);
-    // Time under the marker is still exact, in and after the zero block.
-    for (const [now, min, block] of [[at(19, 43), 23, 0], [at(20, 6, 30), 46.5, 1], [at(20, 7), 47, 3], [at(20, 25), 65, 4]]) {
+    expect(screen.getByText('TERMINA 20:30')).toBeInTheDocument(); // deadline untouched
+    // Dots: whole, apart, in display order.
+    const centers = [2, 0, 1, 3, 4].map((i) => px(dot('ABCDE'[i]).style.left) + DOT / 2);
+    for (let k = 1; k < 5; k++) expect(centers[k] - centers[k - 1]).toBeGreaterThanOrEqual(DOT_GAP - 1e-6);
+    // Time goes on: the marker follows the exact part.
+    for (const [now, i, start, min] of [[at(19, 43), 0, 0, 23], [at(19, 44), 1, 70 / 3, 24], [at(20, 6, 30), 1, 70 / 3, 46.5], [at(20, 7), 3, 140 / 3, 47], [at(20, 25), 4, 175 / 3, 65]]) {
       tick(now);
       expectMarkerFixed();
-      expect(underMin()).toBeCloseTo(min, 6);
-      expect(blockUnder()).toBe(block);
+      expect(underFrom(i, start)).toBeCloseTo(min, 6);
     }
-    // And its dot still unmarks it.
+    // Undo (while A is still in progress): back in its original place and size.
     tick(at(19, 30));
     fireEvent.click(dot('C'));
     expect(dot('C')).toHaveAttribute('aria-pressed', 'false');
-    expect(widths()[2]).toBeGreaterThan(0);
+    expect(order()).toEqual([0, 1, 2, 3, 4]);
+    [20, 20, 10, 10, 10].forEach((m, i) => expect(blockX(i).w).toBeCloseTo(m * PPM, 6));
+    expect(underMin()).toBeCloseTo(10, 6);
+    expect(screen.getByText('TERMINA 20:30')).toBeInTheDocument();
+  });
+
+  test('done tasks never shrink below a readable width, even a 1-minute one finished at once', () => {
+    renderAt(at(19, 25), false);
+    fireEvent.click(dot('A')); // A ends now, after 5 of its 20 min
+    fireEvent.click(dot('B')); // B is current and ends at once
+    const a = blockX(0);
+    const b = blockX(1);
+    expect(order()).toEqual([0, 1, 2, 3, 4]);
+    expect(a.w).toBeCloseTo(20 * PPM, 6); // max(planned 5, original 20)
+    expect(b.w).toBeCloseTo(20 * PPM, 6);
+    expect(b.w).toBeGreaterThanOrEqual(DONE_MIN_W);
+    expect(underFrom(2, 5)).toBeCloseTo(5, 6); // C runs from 19:25
+  });
+
+  describe('closing ("Hora de dormir"/"Hora de sair") right after the last task', () => {
+    const closingBox = () => screen.getByTestId('tv-closing');
+    const lastEnd = () => { const e = blockX(4); return e.x + e.w; };
+    const inClosing = () => {
+      const x = track().scrollLeft + NOW_X;
+      return x >= px(closingBox().style.left) - 1e-6;
+    };
+
+    test.each([
+      ['in progress', at(19, 50), false],
+      ['last second of the last task', at(20, 29, 59), false],
+      ['deadline', at(20, 30), true],
+      ['overtime', at(20, 52), true],
+    ])('%s: adjacent to the last task, the marker enters it as soon as the last task ends', (_, now, inside) => {
+      renderAt(now, false);
+      expect(px(closingBox().style.left)).toBeCloseTo(lastEnd(), 6);
+      expect(inClosing()).toBe(inside);
+      expectMarkerFixed();
+      expect(closingBox()).toHaveTextContent('Hora de sair');
+    });
+
+    test('all done before the deadline: the closing starts where the last task ended, the marker is inside it', () => {
+      const { tick } = renderAt(at(20, 0), false);
+      for (const n of ['C', 'D', 'E']) fireEvent.click(dot(n)); // C was in progress
+      // Everything is done; the free time until 20:30 belongs to the closing.
+      expect(order()).toEqual([0, 1, 2, 3, 4]);
+      expect(closingBox().dataset.lit).toBe('true');
+      expect(px(closingBox().style.left)).toBeCloseTo(lastEnd(), 6);
+      expect(inClosing()).toBe(true);
+      expect(px(closingBox().style.left)).toBeCloseTo(track().scrollLeft + NOW_X, 6); // just entered
+      expect(screen.getByText('TERMINA 20:30')).toBeInTheDocument();
+      // The deadline line is inside the closing, after the marker; then overtime.
+      expect(px(screen.getByTestId('tv-deadline').style.left) + 2).toBeCloseTo(track().scrollLeft + NOW_X + 30 * PPM, 6);
+      tick(at(20, 40));
+      expect(inClosing()).toBe(true);
+      expect(screen.getByTestId('tv-overtime')).toBeInTheDocument();
+      expect(px(closingBox().style.left)).toBeCloseTo(lastEnd(), 6);
+    });
   });
 
   test('a dot right under the NOW marker is on top and clickable', () => {
@@ -229,6 +316,40 @@ describe('TV: fixed NOW marker over a 40-minute window (70-minute routine)', () 
     expect(Number(d.style.zIndex)).toBeGreaterThan(Number(line().style.zIndex));
     fireEvent.click(d);
     expect(dot('A')).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('TV → phone → TV without reload: the marker is back on now, never in the closing gap', () => {
+    // A matchMedia that can change, like a window being resized.
+    const listeners = new Set();
+    let phone = false;
+    window.matchMedia = () => ({ get matches() { return phone; }, addEventListener: (_, f) => listeners.add(f), removeEventListener: (_, f) => listeners.delete(f) });
+    const props = { routines, setRoutines: () => {} };
+    const { rerender } = render(<Home {...props} currentTime={at(19, 47, 30)} />);
+    const flip = (v) => act(() => { phone = v; listeners.forEach((f) => f()); });
+    const before = [lineX(), underMin(), track().scrollLeft];
+    for (let k = 0; k < 3; k++) {
+      flip(true);
+      expect(screen.queryByTestId('tv-track')).toBeNull();
+      expect(screen.getByTestId('phone-now-line')).toBeInTheDocument();
+      rerender(<Home {...props} currentTime={at(19, 47, 30)} />);
+      flip(false);
+      expectMarkerFixed();
+      expect([lineX(), underMin(), track().scrollLeft]).toEqual(before);
+      expect(blockUnder()).toBe(1);
+      expect(line().dataset.mode).toBe('now');
+    }
+    // Same near the end: inside E, then inside the closing, never before it.
+    rerender(<Home {...props} currentTime={at(20, 29)} />);
+    flip(true);
+    flip(false);
+    expect(blockUnder()).toBe(4);
+    rerender(<Home {...props} currentTime={at(20, 31)} />);
+    flip(true);
+    flip(false);
+    const closingLeft = px(screen.getByTestId('tv-closing').style.left);
+    expect(track().scrollLeft + NOW_X).toBeGreaterThanOrEqual(closingLeft);
+    expect(closingLeft).toBeCloseTo(px(screen.getAllByTestId('tv-block')[4].parentElement.style.left) + px(screen.getAllByTestId('tv-block')[4].style.width), 6);
+    setPhone(false);
   });
 
   test('resizing the window rescales the stage only: marker and window unchanged', () => {
@@ -246,23 +367,32 @@ describe('TV: fixed NOW marker over a 40-minute window (70-minute routine)', () 
 
 describe('phone: rows follow the redistributed minutes', () => {
   const nowY = () => px(screen.getByTestId('phone-now-line').style.top);
-  const heights = () => screen.getAllByTestId('phone-row').map((r) => px(r.style.height));
+  const rows = () => screen.getAllByTestId('phone-row');
+  const heights = () => rows().map((r) => px(r.style.height));
+  const order = () => rows().map((r) => Number(r.dataset.index));
+  const closingRow = () => screen.getByTestId('phone-closing');
 
-  test('marking a future task: heights change, NOW stays on the real geometry, dots stay tappable', () => {
+  test('marking a future task: it moves above the task in progress (sized by its minutes), NOW stays on the real geometry', () => {
     const { tick } = renderAt(at(19, 25), true);
     expect(heights()).toEqual([20, 20, 10, 10, 10].map((m) => m * PX_PER_MIN));
     expect(nowY()).toBeCloseTo(5 * PX_PER_MIN, 6);
 
     fireEvent.click(dot('C'));
+    expect(order()).toEqual([2, 0, 1, 3, 4]);
     const h = heights();
-    [70 / 3, 70 / 3, null, 35 / 3, 35 / 3].forEach((m, i) => m && expect(h[i]).toBeCloseTo(m * PX_PER_MIN, 6));
-    expect(h[2]).toBe(MIN_ROW_H);
-    expect(nowY()).toBeCloseTo(5 * PX_PER_MIN, 6); // A keeps its start: same spot
+    expect(h[0]).toBeCloseTo(10 * PX_PER_MIN, 6); // C: its original 10 min, done, above
+    expect(rows()[0]).toHaveTextContent('C');
+    expect(rows()[0].dataset.early).toBe('true');
+    [70 / 3, 70 / 3, 35 / 3, 35 / 3].forEach((m, k) => expect(h[k + 1]).toBeCloseTo(m * PX_PER_MIN, 6));
+    expect(nowY()).toBeCloseTo(h[0] + 5 * PX_PER_MIN, 6); // A keeps its start; C is above NOW
 
-    tick(at(19, 50)); // B runs 19:43:20 → 20:06:40
-    expect(nowY()).toBeCloseTo(h[0] + (20 / 3) * PX_PER_MIN, 6);
-    tick(at(20, 10)); // past the done C row: D runs 20:06:40 → 20:18:20
-    expect(nowY()).toBeCloseTo(h[0] + h[1] + h[2] + (10 / 3) * PX_PER_MIN, 6);
+    tick(at(19, 50)); // B runs 19:43:20 → 20:06:40; A (23:20 planned) is done, above it with C
+    expect(order()).toEqual([0, 2, 1, 3, 4]);
+    expect(nowY()).toBeCloseTo((70 / 3) * PX_PER_MIN + h[0] + (20 / 3) * PX_PER_MIN, 6);
+    tick(at(20, 10)); // D runs 20:06:40 → 20:18:20
+    const h2 = heights();
+    expect(order()).toEqual([0, 1, 2, 3, 4]); // all three done rows in their original order
+    expect(nowY()).toBeCloseTo(h2[0] + h2[1] + h2[2] + (10 / 3) * PX_PER_MIN, 6);
 
     for (const name of ['A', 'B', 'C', 'D', 'E']) {
       const b = dot(name);
@@ -270,8 +400,36 @@ describe('phone: rows follow the redistributed minutes', () => {
       expect(px(b.style.height)).toBeLessThanOrEqual(px(b.parentElement.style.height));
       expect(Number(b.style.zIndex)).toBeGreaterThan(Number(screen.getByTestId('phone-now-line').style.zIndex));
     }
-    // C is behind us now: its dot means "redo it" (jump back to C).
+  });
+
+  test('undoing the mark puts the row back in its place and size', () => {
+    const { tick } = renderAt(at(19, 25), true);
     fireEvent.click(dot('C'));
-    expect(dot('C')).toHaveAttribute('aria-pressed', 'false');
+    tick(at(19, 30));
+    fireEvent.click(dot('C'));
+    expect(order()).toEqual([0, 1, 2, 3, 4]);
+    expect(heights()).toEqual([20, 20, 10, 10, 10].map((m) => m * PX_PER_MIN));
+    expect(nowY()).toBeCloseTo(10 * PX_PER_MIN, 6);
+  });
+
+  test.each([
+    ['in progress', at(20, 25), false],
+    ['deadline', at(20, 30), true],
+    ['overtime', at(20, 52), true],
+  ])('closing row right after the last row (%s); NOW enters it when the last task ends', (_, now, inside) => {
+    renderAt(now, true);
+    const total = heights().reduce((a, b) => a + b, 0);
+    expect(closingRow().previousSibling).toBe(rows()[4]);
+    expect(px(closingRow().style.height)).toBeGreaterThanOrEqual(CLOSE_MIN_H);
+    expect(nowY() >= total).toBe(inside);
+    expect(nowY()).toBeLessThanOrEqual(total + px(closingRow().style.height));
+  });
+
+  test('all done before the deadline: NOW goes straight into the closing row', () => {
+    renderAt(at(20, 0), true);
+    for (const n of ['C', 'D', 'E']) fireEvent.click(dot(n));
+    const total = heights().reduce((a, b) => a + b, 0);
+    expect(closingRow().dataset.lit).toBe('true');
+    expect(nowY()).toBeCloseTo(total, 6);
   });
 });

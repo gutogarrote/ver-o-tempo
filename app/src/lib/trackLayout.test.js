@@ -1,4 +1,4 @@
-import { layoutByLength, layoutByMinute, layoutExact, positionOnTrack, ribbonWindow, spreadDots } from './trackLayout';
+import { layoutByLength, layoutByMinute, layoutExact, positionOnTrack, ribbonItems, ribbonTrack, ribbonWindow, spreadDots } from './trackLayout';
 
 const blocksOf = (minutes) => {
   let start = 0;
@@ -93,4 +93,56 @@ test('spreadDots keeps wishes when there is room and spreads crowds evenly aroun
   expect(out[0]).toBe(0);
   expect(out[5]).toBe(900);
   expect(spreadDots([], 46)).toEqual([]);
+});
+
+describe('ribbonItems / ribbonTrack (done tasks behind the marker, closing after the last task)', () => {
+  // 5 tasks (minutes 20,20,10,10,10) from minute 0. Task 2 marked ahead of time at minute 5:
+  // A 0–23.33 in progress, B –46.67, C 0 min (done), D –58.33, E –70.
+  const mk = (rows) => rows.map(([planStart, planMinutes, minutes, done, isCurrent]) => ({ planStart, planMinutes, minutes, done, isCurrent }));
+  const blocks = mk([[0, 70 / 3, 20, false, true], [70 / 3, 70 / 3, 20, false, false], [140 / 3, 0, 10, true, false], [140 / 3, 35 / 3, 10, false, false], [175 / 3, 35 / 3, 10, false, false]]);
+  const opts = { viewW: 1200, windowMin: 40, followAt: 0.25, planMin: 70, preMaxMin: 30, doneMinPx: 100 };
+
+  test('done first (original order), then the task in progress and the pending ones; closing at the end of the last', () => {
+    const { items, pivot, closeMin } = ribbonItems(blocks);
+    expect(items.map((it) => it.i)).toEqual([2, 0, 1, 3, 4]);
+    expect(items[0]).toMatchObject({ done: true, early: true, minutes: 10, m0: 0, m1: 0 });
+    expect(pivot).toBe(0);
+    expect(closeMin).toBeCloseTo(70, 9);
+  });
+
+  test('exact scale from the task in progress on; done part only visual; marker reachable; inverse mapping', () => {
+    const w = ribbonTrack({ ...opts, blocks, nowMin: 5 });
+    const ppm = 30;
+    const [c, a, b, d, e] = w.items;
+    expect(c.w).toBeCloseTo(10 * ppm, 9);
+    expect(a.x).toBeCloseTo(c.x + c.w, 9);
+    expect(b.x - a.x).toBeCloseTo((70 / 3) * ppm, 9);
+    expect(e.x + e.w).toBeCloseTo(w.closeX, 9);
+    expect(w.closeX - a.x).toBeCloseTo(70 * ppm, 9); // same 40-min scale for the plan
+    expect(w.scrollFor(5)).toBeGreaterThanOrEqual(0);
+    expect(w.scrollFor(5)).toBeLessThanOrEqual(w.maxScroll + 1e-9);
+    for (const m of [0, 5, 23, 47, 69.9, 70, 95]) expect(w.minAt(w.scrollFor(m))).toBeCloseTo(m, 9);
+    expect(c.x + c.w).toBeLessThanOrEqual(w.xOf(5)); // C is behind the marker
+  });
+
+  test('all done before the deadline: closing starts at the last end, the deadline inside it', () => {
+    const done = mk([[0, 20, 20, true, false], [20, 20, 20, true, false], [40, 0, 10, true, false], [40, 0, 10, true, false], [40, 0, 10, true, false]]);
+    const w = ribbonTrack({ ...opts, blocks: done, nowMin: 40 });
+    expect(w.closeMin).toBe(40);
+    expect(w.items.at(-1).x + w.items.at(-1).w).toBeCloseTo(w.closeX, 9);
+    expect(w.xOf(40)).toBeCloseTo(w.closeX, 9); // now: just inside the closing
+    expect(w.xOf(70) - w.closeX).toBeCloseTo(30 * 30, 9);
+    expect(w.margin).toBe(0); // the done tasks fill the left: no empty track before them
+  });
+
+  test('nothing done: same geometry as ribbonWindow', () => {
+    const plain = mk([[0, 20, 20, false, true], [20, 20, 20, false, false], [40, 30, 30, false, false]]);
+    for (const nowMin of [-50, -8, 0, 27.5, 70, 92]) {
+      const a = ribbonTrack({ ...opts, blocks: plain, nowMin });
+      const b = ribbonWindow({ ...opts, nowMin });
+      expect(a.contentW).toBeCloseTo(b.contentW, 9);
+      expect(a.scrollFor(a.markMin)).toBeCloseTo(b.scrollFor(b.markMin), 9);
+      expect(a.closeX).toBeCloseTo(b.xOf(70), 9);
+    }
+  });
 });
