@@ -1,5 +1,8 @@
 // Session schedule ("plan") for one run of a routine.
-// A plan is { endMs, segs: [{ start, end }] (ms timestamps per task), done: [bool] }.
+// A plan is { endMs, segs: [{ start, end }] (ms timestamps per task), done: [bool],
+// doneSeq: [int] }. doneSeq is only the ORDER in which the marks were made (1, 2, 3…; 0 =
+// not marked, or a mark from before doneSeq existed): never a time, never used to compute
+// durations — it only tells the screens which mark is the most recent (see ribbonItems).
 // Three different quantities, never mixed up:
 //  - original minutes: what the parents configured; only ever used as WEIGHTS, so repeated
 //    adjustments never compound, and the configured routine itself is never modified;
@@ -78,8 +81,17 @@ export function defaultPlan(tasks, endMs) {
     t += d;
     return s;
   });
-  return { endMs, segs, done: orig.map(() => false) };
+  return { endMs, segs, done: orig.map(() => false), doneSeq: orig.map(() => 0) };
 }
+
+// Order of the done marks (see doneSeq); plans saved before it existed read as all 0.
+export const markSeq = (plan, i) => (plan.done[i] && plan.doneSeq?.[i]) || 0;
+const nextSeq = (plan) => plan.done.reduce((m, _, i) => Math.max(m, markSeq(plan, i)), 0) + 1;
+const withSeq = (plan, i, seq) => {
+  const doneSeq = plan.done.map((_, j) => markSeq(plan, j));
+  doneSeq[i] = seq;
+  return doneSeq;
+};
 
 // "Now" never goes before the first task: before the routine starts, time is paused at its start.
 const effectiveNow = (plan, nowMs) => (plan.segs.length ? Math.max(nowMs, plan.segs[0].start) : nowMs);
@@ -139,7 +151,8 @@ export function completeTask(plan, tasks, i, nowMs) {
   if (i < 0 || i >= plan.segs.length || isTaskDone(plan, i, nowMs)) return plan;
   const done = plan.done.slice();
   done[i] = true;
-  if (isOvertime(plan, nowMs)) return { ...plan, done };
+  const doneSeq = withSeq(plan, i, nextSeq(plan));
+  if (isOvertime(plan, nowMs)) return { ...plan, done, doneSeq };
   const orig = originalMs(tasks);
   const c = currentIndex(plan, nowMs);
   const durs = durationsOf(plan);
@@ -157,7 +170,7 @@ export function completeTask(plan, tasks, i, nowMs) {
   for (let j = c; j < durs.length; j++) if (!done[j]) takers.push(j);
   const shares = splitProportional(freed, takers.map((j) => orig[j]));
   takers.forEach((j, k) => { durs[j] += shares[k]; });
-  return { ...plan, done, segs: layOut(plan, c, cur.start, durs) };
+  return { ...plan, done, doneSeq, segs: layOut(plan, c, cur.start, durs) };
 }
 
 // Undo the mark of a future task (i > current): it gets its original minutes back, taken
@@ -176,7 +189,7 @@ function unmarkFuture(plan, tasks, i, c, nowMs) {
   const taken = splitCapped(orig[i], givers.map((j) => orig[j]), caps);
   givers.forEach((j, k) => { durs[j] -= taken[k]; });
   durs[i] = taken.reduce((a, b) => a + b, 0);
-  return { ...plan, done, segs: layOut(plan, c, cur.start, durs) };
+  return { ...plan, done, doneSeq: withSeq(plan, i, 0), segs: layOut(plan, c, cur.start, durs) };
 }
 
 // Start task i now ("Pular para"). Everything from i on becomes pending again.
@@ -191,10 +204,11 @@ export function jumpTo(plan, tasks, i, nowMs, { keepDeadline = true } = {}) {
     j < i && s.end > nowMs ? { start: Math.min(s.start, nowMs), end: nowMs } : s
   );
   const done = plan.done.map((d, j) => (j < i ? d : false));
+  const doneSeq = plan.done.map((_, j) => (j < i ? markSeq(plan, j) : 0));
   const dist = plan.endMs - nowMs;
   const keep = keepDeadline && dist > 0 && dist <= 2 * sum(orig);
   const endMs = keep ? plan.endMs : nowMs + sum(orig.slice(i));
-  return replan({ endMs, segs, done }, orig, i, nowMs);
+  return replan({ endMs, segs, done, doneSeq }, orig, i, nowMs);
 }
 
 // Push the deadline back by exactly `ms`, shared by the pending tasks (current + unmarked
@@ -219,13 +233,16 @@ export function extendDeadline(plan, tasks, nowMs, ms = EXTEND_MS) {
 
 // A fresh schedule ending at endMs (what a deadline changed by hand gives) that keeps the
 // tasks the parents marked done (`marked(task, i)`): each is completed again at nowMs, in
-// order, by the same rules as the dot (completeTask), so its time goes to the pending tasks;
-// a marked task already behind us just stays marked. Done marks are facts about the
-// evening; the deadline is only a plan, so changing it never undoes them.
+// task order, by the same rules as the dot (completeTask), so its time goes to the pending
+// tasks; a marked task already behind us just stays marked. Done marks are facts about the
+// evening; the deadline is only a plan, so changing it never undoes them. `marked` returns
+// false/undefined (not marked), or the mark's doneSeq (a number; true = legacy mark, 0),
+// so the order in which the marks were made survives too.
 export function restartPlan(tasks, endMs, nowMs, marked) {
   let plan = defaultPlan(tasks, endMs);
+  const seqs = (tasks || []).map((t, i) => marked(t, i));
   (tasks || []).forEach((t, i) => {
-    if (!marked(t, i)) return;
+    if (seqs[i] == null || seqs[i] === false) return;
     if (isTaskDone(plan, i, nowMs)) {
       const done = plan.done.slice();
       done[i] = true;
@@ -234,7 +251,7 @@ export function restartPlan(tasks, endMs, nowMs, marked) {
       plan = completeTask(plan, tasks, i, nowMs);
     }
   });
-  return plan;
+  return { ...plan, doneSeq: plan.done.map((d, i) => (d && typeof seqs[i] === 'number' ? seqs[i] : 0)) };
 }
 
 // The completion dot: marks a pending task done; on a done task it undoes the mark.

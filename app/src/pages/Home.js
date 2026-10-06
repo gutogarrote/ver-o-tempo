@@ -6,7 +6,7 @@ import DefaultRoutineEditor from '../components/DefaultRoutineEditor';
 import RoutineEditor from '../components/RoutineEditor';
 import { OVERTIME_WINDOW_MIN, computeElapsed, hhmm, sumMinutes, toToday } from '../lib/timeline';
 import { buildPlanView, closingFor } from '../lib/routineView';
-import { MIN_MS, defaultPlan, extendDeadline, jumpTo, restartPlan, toggleTaskDone } from '../lib/schedule';
+import { MIN_MS, defaultPlan, extendDeadline, jumpTo, markSeq, restartPlan, toggleTaskDone } from '../lib/schedule';
 
 // Phones and portrait screens get the vertical ribbon (2a); landscape gets the TV stage (1a).
 const PHONE_QUERY = '(max-width: 767px), (max-aspect-ratio: 1/1)';
@@ -91,11 +91,12 @@ export default function Home({ routines, setRoutines, currentTime }) {
   const onExtend = () => applyPlan(extendDeadline(plan, tasks, nowMs));
 
   // Parents changing the deadline/mode by hand (or saving the routine) start from a fresh
-  // schedule for the new deadline, but tasks they marked done stay done (restartPlan).
-  const marks = new Set(plan.done.map((d, i) => (d ? taskKey(tasks[i], i) : null)).filter(Boolean));
+  // schedule for the new deadline, but tasks they marked done stay done, in the order they
+  // were marked (restartPlan).
+  const marks = new Map(plan.done.map((d, i) => (d ? [taskKey(tasks[i], i), markSeq(plan, i)] : null)).filter(Boolean));
   function restartFor(nextRoutineId, nextTasks, endMs) {
     if (!marks.size) return null;
-    return { routineId: nextRoutineId, tasks: nextTasks, plan: restartPlan(nextTasks, endMs, nowMs, (t, i) => marks.has(taskKey(t, i))) };
+    return { routineId: nextRoutineId, tasks: nextTasks, plan: restartPlan(nextTasks, endMs, nowMs, (t, i) => marks.get(taskKey(t, i))) };
   }
   const endFor = ({ deadline = deadlineStr, deadlineMode = useDeadline, start = startTime, total = totalMinutes } = {}) =>
     computeElapsed({ mode: deadlineMode ? 'deadline' : 'start', startTime: start, deadline: toToday(deadline), now, totalMinutes: total }).endsAt.getTime();

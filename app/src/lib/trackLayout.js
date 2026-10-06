@@ -79,16 +79,18 @@ export function ribbonWindow({ viewW, windowMin, followAt, planMin, nowMin, preM
 // What the ribbon shows, in display order (TV and phone). Semantics of a task marked done
 // ahead of time ("Nina went to the potty while the routine said 'play'"): marking it does
 // not mean it took zero minutes, only that it is behind us. So:
-//  - done tasks (past ones, and ones marked ahead of time) are shown first, in their
-//    original order, i.e. BEFORE the task in progress and the NOW marker, each sized by
+//  - done tasks (past ones, and ones marked ahead of time) are shown first — past ones in
+//    their original order, then the ones marked ahead in the order they were marked —
+//    i.e. BEFORE the task in progress and the NOW marker, each sized by
 //    max(planned, original) minutes: a big task still looks big, with its name and icon.
 //    This part of the ribbon is a visual record, not an exact clock;
 //  - from `pivot` (start of the task in progress; end of the last task when none is in
 //    progress) the ribbon is an exact time scale: the task in progress and the pending
 //    ones, with their planned minutes, then the closing ("Hora de dormir"/"Hora de sair"),
 //    right after the last task, from `closeMin` on (free time, deadline, overtime).
-// Nothing is stored: the order derives from the done marks and the task index, so undoing
-// a mark puts the task back in its original place (see schedule.unmarkFuture for its time).
+// The order derives from the done marks, their order (plan.doneSeq) and the task index, so
+// undoing a mark puts the task back in its original place (see schedule.unmarkFuture for
+// its time); pending tasks always keep their original order.
 // Minutes are counted from the plan start (view.planStart/planMinutes).
 export function ribbonItems(blocks) {
   const cur = blocks.findIndex((b) => b.isCurrent);
@@ -97,6 +99,12 @@ export function ribbonItems(blocks) {
   const done = [];
   const open = [];
   blocks.forEach((b, i) => (b.done ? done : open).push(i));
+  // Tasks marked done ahead of the task in progress come last among the done ones, in the
+  // order they were MARKED (markSeq; legacy marks without one count as oldest, by index):
+  // the one just marked always sits right before the task in progress, next to NOW.
+  const isAhead = (i) => cur >= 0 && i > cur;
+  const seq = (i) => blocks[i].markSeq || 0;
+  done.sort((a, b) => isAhead(a) - isAhead(b) || (isAhead(a) ? seq(a) - seq(b) : 0) || a - b);
   const items = [
     ...done.map((i) => {
       const b = blocks[i];
@@ -130,7 +138,8 @@ export function ribbonItems(blocks) {
 // what is left of that room, its ELAPSED part (behind the marker) is drawn compressed
 // (`squeeze` px less, `elapsedW` px wide) — a visual record, like the done blocks — and when
 // they are too big for the room even so, the ahead blocks themselves share it (≥ doneMinPx
-// each; with too many of them the leftmost ones go past the edge). From the marker on the
+// each; with too many of them the leftmost — marked longest ago — go past the edge, so the
+// one just marked is always whole next to the marker). From the marker on the
 // ribbon stays exact (remaining minutes of the task in progress, pending tasks, deadline).
 // Once the plan reaches their slot they are plain past done tasks and scroll away.
 export function ribbonTrack({ blocks, viewW, windowMin, followAt, planMin, nowMin, preMaxMin, doneMinPx = 0, edgePx = 0 }) {

@@ -37,9 +37,9 @@ function setPhone(phone) {
   window.matchMedia = phone ? () => ({ matches: true, addEventListener() {}, removeEventListener() {} }) : undefined;
 }
 
-function renderAt(now, phone) {
+function renderAt(now, phone, rs = routines) {
   setPhone(phone);
-  const props = { routines, setRoutines: () => {} };
+  const props = { routines: rs, setRoutines: () => {} };
   const utils = render(<Home {...props} currentTime={now} />);
   return { ...utils, tick: (t) => utils.rerender(<Home {...props} currentTime={t} />) };
 }
@@ -265,6 +265,97 @@ describe('TV: fixed NOW marker over a 40-minute window (70-minute routine)', () 
     expect(screen.getByTestId('tv-elapsed').dataset.squeezed).toBeUndefined();
     expect(px(screen.getByTestId('tv-elapsed').style.width)).toBeCloseTo(10 * PPM, 6);
     expect(screen.getByText('TERMINA 20:30')).toBeInTheDocument();
+  });
+
+  // Adverse order: a 60-min task at its minute 35, four 5-min tasks marked 4, 3, 2, 1 (the
+  // last one marked has the lowest index). Only ~2 done blocks fit between the fade and the
+  // marker: the one just marked must be one of them, whole, right behind the marker.
+  describe('several tasks marked ahead, in adverse order', () => {
+    // 80 min ending 20:00 → starts 18:40; now 19:15.
+    const R = { monday: { morning: { name: 'Manhã', endTime: '20:00', tasks: [
+      { id: 1, name: 'Longa', icon: '🧩', color: '#38bdf8', minutes: 60 },
+      ...['P', 'Q', 'R', 'S'].map((name, k) => ({ id: k + 2, name, icon: ['🥤', '🧼', '🪥', '🧺'][k], color: '#a78bfa', minutes: 5 })),
+    ] } } };
+    const names = ['Longa', 'P', 'Q', 'R', 'S'];
+    const expectWholeBehindMarker = (i) => {
+      const b = blockX(i);
+      expect(b.el.dataset.done).toBe('true');
+      expect(b.w).toBeGreaterThanOrEqual(DONE_MIN_W - 1e-6);
+      expect(b.x - track().scrollLeft).toBeGreaterThanOrEqual(FADE_W - 1e-6);
+      expect(b.x + b.w).toBeLessThanOrEqual(nowOnTrack() + 1e-6);
+      expect(blockX(0).x).toBeCloseTo(b.x + b.w, 6); // touches the task in progress, no overlap
+      expect(b.el).toHaveTextContent(names[i]);
+      // Its dot is inside the clear part of the window, left of the marker.
+      const c = px(dot(names[i]).style.left) + DOT / 2 - track().scrollLeft;
+      expect(c - DOT / 2).toBeGreaterThanOrEqual(FADE_W - 1e-6);
+      expect(c).toBeLessThanOrEqual(NOW_X);
+    };
+    const rightSide = () => [px(screen.getByTestId('tv-deadline').style.left) + 2 - nowOnTrack(), screen.getByText(/^TERMINA /).textContent];
+
+    test('marking 4, 3, 2, 1: the one just marked is always whole next to the marker; pending order kept; undo; deadline edit; TV → phone → TV', () => {
+      // A matchMedia that can change, like a window being resized (TV → phone → TV).
+      const listeners = new Set();
+      let phone = false;
+      window.matchMedia = () => ({ get matches() { return phone; }, addEventListener: (_, f) => listeners.add(f), removeEventListener: (_, f) => listeners.delete(f) });
+      const flip = (v) => act(() => { phone = v; listeners.forEach((f) => f()); });
+      const props = { routines: R, setRoutines: () => {} };
+      const { rerender } = render(<Home {...props} currentTime={at(19, 15)} />);
+      const tick = (t) => rerender(<Home {...props} currentTime={t} />);
+      const right0 = rightSide();
+      [4, 3, 2, 1].forEach((i, k) => {
+        fireEvent.click(dot(names[i]));
+        expect(dot(names[i])).toHaveAttribute('aria-pressed', 'true');
+        expectWholeBehindMarker(i);
+        expectMarkerFixed();
+        expect(rightSide()).toEqual(right0); // deadline: same place, same time
+        // Done ones ahead in the order they were marked (oldest leftmost); pending in task order.
+        const marked = [4, 3, 2, 1].slice(0, k + 1);
+        expect(order()).toEqual([...marked, 0, ...[1, 2, 3, 4].filter((j) => !marked.includes(j))]);
+      });
+      // The task in progress got all 20 min: exactly 45 min left, from the marker on.
+      expect(blockX(0).x + blockX(0).w - nowOnTrack()).toBeCloseTo(45 * PPM, 6);
+      expect(screen.getByText('Termina às 20:00')).toBeInTheDocument();
+      // A minute later it is still whole there.
+      tick(at(19, 16));
+      expectWholeBehindMarker(1);
+      // Deadline edited by hand: marks AND their order survive; P still the one next to NOW.
+      fireEvent.click(screen.getByRole('button', { name: 'Menu dos pais' }));
+      fireEvent.change(screen.getByLabelText('Hora limite'), { target: { value: '20:10' } });
+      expect(screen.getByText('TERMINA 20:10')).toBeInTheDocument();
+      expect(order()).toEqual([4, 3, 2, 1, 0]);
+      expectWholeBehindMarker(1);
+      expectMarkerFixed();
+      // TV → phone → TV: same.
+      flip(true);
+      expect(screen.queryByTestId('tv-track')).toBeNull();
+      // Phone: same order (P, the last marked, right above the task in progress).
+      expect(screen.getAllByTestId('phone-row').map((r) => Number(r.dataset.index))).toEqual([4, 3, 2, 1, 0]);
+      tick(at(19, 16, 20));
+      flip(false);
+      expect(order()).toEqual([4, 3, 2, 1, 0]);
+      expectWholeBehindMarker(1);
+      expectMarkerFixed();
+      // Undo P: back to its original place, pending again; Q is now the most recent mark.
+      fireEvent.click(dot('P'));
+      expect(dot('P')).toHaveAttribute('aria-pressed', 'false');
+      expect(order()).toEqual([4, 3, 2, 0, 1]);
+      expectWholeBehindMarker(2);
+      // Mark it again: most recent again.
+      fireEvent.click(dot('P'));
+      expect(order()).toEqual([4, 3, 2, 1, 0]);
+      expectWholeBehindMarker(1);
+    });
+
+    test('undoing every mark gives the original order and the original deadline', () => {
+      renderAt(at(19, 15), false, R);
+      const right0 = rightSide();
+      [4, 3, 2, 1].forEach((i) => fireEvent.click(dot(names[i])));
+      [1, 2, 3, 4].forEach((i) => fireEvent.click(dot(names[i])));
+      expect(order()).toEqual([0, 1, 2, 3, 4]);
+      expect(rightSide()).toEqual(right0);
+      expect(screen.getByTestId('tv-elapsed').dataset.squeezed).toBeUndefined();
+      expectMarkerFixed();
+    });
   });
 
   test('marking a task reached by scrolling ahead by hand brings the ribbon back to now, with it in view', () => {

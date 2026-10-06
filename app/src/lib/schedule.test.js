@@ -1,5 +1,5 @@
 import {
-  MIN_MS, completeTask, currentIndex, defaultPlan, extendDeadline, jumpTo, originalMs, restartPlan,
+  MIN_MS, completeTask, currentIndex, defaultPlan, extendDeadline, jumpTo, markSeq, originalMs, restartPlan,
   splitCapped, splitProportional, toggleTaskDone,
 } from './schedule';
 import { buildPlanView, closingFor } from './routineView';
@@ -381,5 +381,62 @@ describe('restartPlan (deadline changed by hand / routine saved): done marks are
     expect(p.segs[1].end).toBe(65 * M); // task 1 was in progress at 65: ends now
     expect(p.segs[3].end).toBe(100 * M);
     expect(total(p)).toBe(60 * M);
+  });
+});
+
+// Order of the marks (doneSeq): only which mark came last, never a time.
+describe('doneSeq: order in which the tasks were marked done', () => {
+  const M = 60000;
+  // 60-min task in progress at its minute 35, then four 5-min tasks; deadline 80.
+  const tasks = [60, 5, 5, 5, 5].map((minutes, i) => ({ id: i + 1, minutes }));
+  const now = 35 * M;
+  const markAll = (order) => order.reduce((p, i) => toggleTaskDone(p, tasks, i, now), defaultPlan(tasks, 80 * M));
+
+  test('each mark gets the next number; undo clears it; the others keep theirs', () => {
+    const p = markAll([4, 3, 2, 1]);
+    expect(p.doneSeq).toEqual([0, 4, 3, 2, 1]);
+    const u = toggleTaskDone(p, tasks, 2, now); // undo task 2
+    expect(u.done).toEqual([false, true, false, true, true]);
+    expect(u.doneSeq).toEqual([0, 4, 0, 2, 1]);
+    expect(toggleTaskDone(u, tasks, 2, now).doneSeq).toEqual([0, 4, 5, 2, 1]); // marked again: most recent
+  });
+
+  test('the order does not change the schedule (same times as marking in task order)', () => {
+    const a = markAll([4, 3, 2, 1]);
+    const b = markAll([1, 2, 3, 4]);
+    expect(a.segs).toEqual(b.segs);
+    expect(a.endMs).toBe(80 * M);
+    // Undoing every mark: nothing marked, deadline and start unchanged. (Minutes come back
+    // by the unmarkFuture rules, so after several marks they need not be the original ones.)
+    const u = [1, 2, 3, 4].reduce((p, i) => toggleTaskDone(p, tasks, i, now), a);
+    expect(u.done).toEqual([false, false, false, false, false]);
+    expect(u.doneSeq).toEqual([0, 0, 0, 0, 0]);
+    expect(u.segs[0].start).toBe(0);
+    expect(u.segs[4].end).toBe(80 * M);
+    // One mark undone: the original schedule exactly.
+    const one = toggleTaskDone(toggleTaskDone(defaultPlan(tasks, 80 * M), tasks, 1, now), tasks, 1, now);
+    expect(one.segs).toEqual(defaultPlan(tasks, 80 * M).segs);
+    expect(one.doneSeq).toEqual([0, 0, 0, 0, 0]);
+  });
+
+  test('survives +5 min and a deadline changed by hand (restartPlan with the seqs)', () => {
+    const p = markAll([4, 3, 2, 1]);
+    expect(extendDeadline(p, tasks, now).doneSeq).toEqual(p.doneSeq);
+    const r = restartPlan(tasks, 90 * M, now, (t, i) => (p.done[i] ? markSeq(p, i) : undefined));
+    expect(r.done).toEqual(p.done);
+    expect(r.doneSeq).toEqual(p.doneSeq);
+    expect(r.endMs).toBe(90 * M);
+    // Next mark after the restart is still the most recent.
+    expect(toggleTaskDone(toggleTaskDone(r, tasks, 3, now), tasks, 3, now).doneSeq[3]).toBe(5);
+  });
+
+  test('legacy plans (no doneSeq) and boolean marks still work, as the oldest marks', () => {
+    const { doneSeq, ...legacy } = completeTask(defaultPlan(tasks, 80 * M), tasks, 3, now);
+    expect(markSeq(legacy, 3)).toBe(0);
+    const p = toggleTaskDone(legacy, tasks, 1, now);
+    expect(p.doneSeq).toEqual([0, 1, 0, 0, 0]);
+    expect(p.done).toEqual([false, true, false, true, false]);
+    expect(restartPlan(tasks, 80 * M, now, (t) => t.id === 4).doneSeq).toEqual([0, 0, 0, 0, 0]);
+    expect(jumpTo(p, tasks, 0, now).doneSeq).toEqual([0, 0, 0, 0, 0]);
   });
 });

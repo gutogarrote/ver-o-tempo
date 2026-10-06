@@ -184,6 +184,37 @@ describe('ribbonItems / ribbonTrack (done tasks behind the marker, closing after
       expect(m.items[2].x + m.items[2].w).toBeCloseTo(mv.now, 9);
     });
 
+    // Adverse order: four 5-min tasks marked 4, 3, 2, 1 — task 1, the one just marked, has the
+    // lowest index; in task order it would be the leftmost and go past the edge.
+    test('several marked in adverse order: the one just marked is whole next to the marker', () => {
+      const mk2 = (seqs) => mk([[0, 80, 60, false, true], ...seqs.map(() => [80, 0, 5, true, false])]).map((b, i) => ({ ...b, markSeq: i ? seqs[i - 1] : 0 }));
+      const seqsAfter = [[0, 0, 0, 1], [0, 0, 2, 1], [0, 3, 2, 1], [4, 3, 2, 1]];
+      seqsAfter.forEach((seqs) => {
+        const marked = seqs.map((q, k) => (q ? k + 1 : 0)).filter(Boolean);
+        const blocks4 = mk([[0, 80, 60, false, true], [80, 5, 5, false, false], [85, 5, 5, false, false], [90, 5, 5, false, false], [95, 5, 5, false, false]])
+          .map((b, i) => (marked.includes(i) ? { ...b, planStart: 80, planMinutes: 0, done: true, markSeq: seqs[i - 1] } : b));
+        const w = ribbonTrack({ ...opts, edgePx, blocks: blocks4, nowMin: 35 });
+        const v = view(w);
+        const last = marked.reduce((a, b) => (seqs[b - 1] > seqs[a - 1] ? b : a));
+        const it = w.items.find((x) => x.i === last);
+        expect(it.x).toBeGreaterThanOrEqual(v.left + edgePx - 1e-9);
+        expect(it.x + it.w).toBeCloseTo(w.items.find((x) => x.i === 0).x, 9); // right behind the task in progress
+        expect(it.x + it.w).toBeLessThanOrEqual(v.now + 1e-9);
+        expect(it.w).toBeGreaterThanOrEqual(100 - 1e-9);
+        // Pending tasks keep their original order, after the task in progress.
+        expect(w.items.filter((x) => !x.done).map((x) => x.i)).toEqual([0, 1, 2, 3, 4].filter((i) => !marked.includes(i)));
+        expect(w.minAt(v.now - w.anchor)).toBeCloseTo(35, 9);
+      });
+      // Done ones ahead: oldest mark leftmost, newest next to the marker.
+      const w = ribbonTrack({ ...opts, edgePx, blocks: mk2([4, 3, 2, 1]), nowMin: 35 });
+      expect(w.items.map((x) => x.i)).toEqual([4, 3, 2, 1, 0]);
+      // Legacy marks (no markSeq) keep the task order.
+      expect(ribbonItems(mk2([0, 0, 0, 0])).items.map((x) => x.i)).toEqual([1, 2, 3, 4, 0]);
+      // Past done tasks are not reordered by their marks.
+      const past = mk([[0, 10, 10, true, false], [10, 10, 10, true, false], [20, 10, 10, false, true]]).map((b, i) => ({ ...b, markSeq: 2 - i }));
+      expect(ribbonItems(past).items.map((x) => x.i)).toEqual([0, 1, 2]);
+    });
+
     test('once the plan reaches its slot it is a plain past task again (scrolls away)', () => {
       const later = mk([[0, 64, 60, true, false], [64, 0, 5, true, false], [64, 16, 15, false, true]]);
       const w = ribbonTrack({ ...opts, edgePx, blocks: later, nowMin: 75 });

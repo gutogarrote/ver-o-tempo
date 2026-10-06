@@ -1,6 +1,6 @@
 // View model for the "Fita" timeline (TV 1a / phone 2a).
 // Pure: give it tasks + elapsed minutes (or a session plan), get back everything the UI renders.
-import { MIN_MS, defaultPlan } from './schedule';
+import { MIN_MS, defaultPlan, markSeq } from './schedule';
 
 export const DEFAULT_BUFFER_MIN = 25;
 
@@ -78,7 +78,7 @@ export function buildPlanView({ tasks, plan, nowMs, closing, label }) {
     return {
       ...task, minutes, start, done, isCurrent,
       state: done ? 'done' : isCurrent ? 'current' : 'future',
-      startMs: seg.start, endMs: seg.end, planMinutes,
+      startMs: seg.start, endMs: seg.end, planMinutes, markSeq: markSeq(plan, i),
       planStart: (seg.start - plan.segs[0].start) / MIN_MS,
       shownMinutes: done ? minutes : Math.round(planMinutes),
     };
