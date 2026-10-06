@@ -298,3 +298,51 @@ test('cancelled editor does not replace URL or persist its draft', async () => {
   expect(window.location.href).toBe(originalUrl);
   expect(localStorage.getItem('routines')).toBe(originalStorage);
 });
+
+test.each([false, true])('integrated URL + completion: marks follow task identity through edits and end-time save (phone: %s)', async phone => {
+  jest.useFakeTimers();
+  const now = new Date();
+  now.setHours(20, 0, 0, 0);
+  jest.setSystemTime(now);
+  window.matchMedia = () => ({ matches: phone, addEventListener() {}, removeEventListener() {} });
+  localStorage.setItem('routines', JSON.stringify(defaults));
+  open('?rotina=1.n.ba-20.ja-25.ma-de-5.2040');
+  const view = render(<App />);
+  try {
+    await screen.findByRole('button', { name: 'Pular para Jantar' });
+    const original = window.location.href;
+    fireEvent.click(screen.getByRole('button', { name: 'Marcar Lavar as mãos + Escovar os dentes como feita' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Marcar Banho como feita' }));
+    expect(window.location.href).toBe(original);
+    edit();
+    fireEvent.click(screen.getByDisplayValue('Jantar').parentElement.querySelector('button[aria-label="Mover tarefa para cima"]'));
+    fireEvent.change(screen.getByDisplayValue('Banho'), { target: { value: 'Banho. quentinho-50%' } });
+    fireEvent.change(screen.getByDisplayValue('25'), { target: { value: '30' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Routine' }));
+    expect(screen.getByRole('button', { name: 'Banho. quentinho-50%: feita (desmarcar)' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Lavar as mãos + Escovar os dentes: feita (desmarcar)' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Marcar Jantar como feita' })).toHaveAttribute('aria-pressed', 'false');
+    expect(stored().monday.evening.tasks.map(t => t.name)).toEqual(['Jantar', 'Banho. quentinho-50%', 'Lavar as mãos + Escovar os dentes']);
+    expect(stored().monday.morning).toEqual(defaults.monday.morning);
+    fireEvent.click(screen.getByRole('button', { name: 'Menu dos pais' }));
+    fireEvent.change(screen.getByLabelText('Horário final'), { target: { value: '20:50' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar horário' }));
+    expect(window.location.search).toContain('.2050');
+    expect(screen.getByRole('button', { name: 'Banho. quentinho-50%: feita (desmarcar)' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Lavar as mãos + Escovar os dentes: feita (desmarcar)' })).toHaveAttribute('aria-pressed', 'true');
+    const link = window.location.href;
+    fireEvent.click(screen.getByRole('button', { name: 'Banho. quentinho-50%: feita (desmarcar)' }));
+    expect(window.location.href).toBe(link);
+    view.unmount();
+    localStorage.clear();
+    render(<App />);
+    await screen.findByRole('button', { name: 'Pular para Banho. quentinho-50%' });
+    // A shared URL transports configuration, not transient completion state.
+    expect(screen.getByRole('button', { name: 'Marcar Banho. quentinho-50% como feita' })).toHaveAttribute('aria-pressed', 'false');
+    expect(stored().monday.evening.endTime).toBe('20:50');
+    expect(stored().monday.evening.tasks.map(t => t.minutes)).toEqual([30, 20, 5]);
+    expect(stored().monday.evening.tasks[2].catalogIds).toEqual(['ma', 'de']);
+  } finally {
+    delete window.matchMedia;
+  }
+});
