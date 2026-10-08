@@ -205,6 +205,7 @@ const DefaultRoutineEditor = ({ routines, onSave, onCancel }) => {
         if (r && Array.isArray(r.tasks)) {
           r.tasks = r.tasks.map((t) => {
             return {
+              ...t,
               id: t.id,
               name: t.name,
               icon: t.icon,
@@ -333,7 +334,7 @@ const DefaultRoutineEditor = ({ routines, onSave, onCancel }) => {
                             type="text"
                             value={task.icon}
                             onChange={(e) => handleTaskChange(day, period, task.id, 'icon', e.target.value)}
-                            className="border p-1 rounded w-12 text-center"
+                            className={task.catalogIds?.length > 1 ? 'border p-1 rounded w-24 text-center' : 'border p-1 rounded w-12 text-center'}
                             placeholder="🎯"
                           />
                           <button 

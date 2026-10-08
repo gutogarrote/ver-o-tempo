@@ -1,9 +1,34 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { C, FREDOKA, NUNITO, agoraColors, doneOverlay, hatch, statusStyle } from './theme';
+import { ribbonColumn } from '../../lib/trackLayout';
 
-const PX_PER_MIN = 11;
+export const PX_PER_MIN = 11;
+// Touch target of the completion dot; rows never get shorter than it, so short
+// (1–2 min) tasks still show the whole dot. The NOW line follows the same geometry.
+export const DOT_HIT = 44;
+const DOT = 26;
+export const MIN_ROW_H = DOT_HIT;
 const FOLLOW_AT = 0.42; // keep NOW ~40% down the visible track
 const MANUAL_HOLD_MS = 10000; // manual scroll pauses auto-follow for this long
+// The closing row (right after the last task) is at least this tall, and tall enough to
+// fill the track below the NOW line, so no empty track shows between the last task and it.
+export const CLOSE_MIN_H = 96;
+
+// Height of the scrolling track, kept up to date (resize, rotation, phone ↔ TV).
+function useHeight(ref) {
+  const [h, setH] = useState(0);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const read = () => setH(el.clientHeight);
+    read();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(read) : null;
+    if (ro) ro.observe(el);
+    window.addEventListener('resize', read);
+    return () => { if (ro) ro.disconnect(); window.removeEventListener('resize', read); };
+  }, [ref]);
+  return h;
+}
 
 function IconToggle({ on, onClick, label, children }) {
   return (
@@ -22,39 +47,75 @@ function IconToggle({ on, onClick, label, children }) {
   );
 }
 
-function TaskRow({ t, i, count, v, onJump }) {
+function TaskRow({ t, i, first, early, v, height, onJump, onToggleDone }) {
   const cur = t.isCurrent && !v.overtime;
-  const radius = i === 0 ? '20px 20px 0 0' : i === count - 1 ? '0 0 20px 20px' : '0';
+  // The closing row follows the last one, so only the first row is rounded.
+  const radius = first ? '20px 20px 0 0' : '0';
+  // Row and completion dot are sibling buttons, so tapping the dot never starts the task.
   return (
-    <button
-      onClick={() => onJump(i)}
-      aria-label={`Pular para ${t.name}`}
+    <div
+      data-testid="phone-row"
+      data-index={i}
+      data-done={t.done ? 'true' : undefined}
+      data-early={early ? 'true' : undefined}
       style={{
-        position: 'relative', overflow: 'hidden', flex: 'none', height: t.minutes * PX_PER_MIN, width: '100%',
-        background: t.color, borderRadius: radius, border: 0, padding: 0, cursor: 'pointer', font: 'inherit', textAlign: 'left',
+        position: 'relative', overflow: 'hidden', flex: 'none', height, width: '100%',
+        background: t.color, borderRadius: radius,
         boxShadow: [`inset 0 -2px 0 ${C.bg}`, t.done && doneOverlay(0.68)].filter(Boolean).join(','),
-        ...(cur ? { outline: '4px solid #fff', outlineOffset: -4, zIndex: 1 } : {}),
+        // No zIndex here: it would trap the dot under the NOW line.
+        ...(cur ? { outline: '4px solid #fff', outlineOffset: -4 } : early ? { outline: `3px dashed ${t.color}`, outlineOffset: -6 } : {}),
       }}
     >
-      <div style={{ position: 'absolute', inset: '0 0 auto 0', height: `${t.isCurrent ? v.currentPct : 0}%`, background: 'rgba(0,0,0,.2)' }} />
-      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 9, height: '100%', padding: '0 12px', boxSizing: 'border-box' }}>
-        <div style={{ fontSize: cur ? 26 : 20, lineHeight: 1, flex: 'none', animation: cur ? 'bob 1.8s ease-in-out infinite' : 'none', opacity: t.done ? 0.55 : 1 }}>{t.icon}</div>
-        <div style={{ flex: 1, minWidth: 0, font: `${cur ? 900 : 800} ${cur ? 18 : 16}px ${NUNITO}`, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: t.done ? C.doneInk : '#fff', textShadow: t.done ? 'none' : '0 1px 3px rgba(0,0,0,.35)' }}>{t.name}</div>
-        <div style={{ font: `700 13px ${NUNITO}`, whiteSpace: 'nowrap', color: t.done ? 'rgba(58,48,38,.8)' : 'rgba(255,255,255,.9)' }}>{t.minutes} min</div>
-        {t.done && (
-          <div style={{ width: 20, height: 20, flex: 'none', borderRadius: 999, background: '#fff', color: C.check, display: 'flex', alignItems: 'center', justifyContent: 'center', font: `900 13px ${NUNITO}` }}>✓</div>
-        )}
-      </div>
-    </button>
+      <button
+        onClick={() => onJump(i)}
+        aria-label={`Pular para ${t.name}`}
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', background: 'transparent', border: 0, padding: 0, cursor: 'pointer', font: 'inherit', textAlign: 'left' }}
+      >
+        <div style={{ position: 'absolute', inset: '0 0 auto 0', height: `${t.isCurrent ? v.currentPct : 0}%`, background: 'rgba(0,0,0,.2)' }} />
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 9, height: '100%', padding: `0 ${DOT_HIT + 8}px 0 12px`, boxSizing: 'border-box' }}>
+          <div style={{ fontSize: cur ? 26 : 20, lineHeight: 1, flex: 'none', animation: cur ? 'bob 1.8s ease-in-out infinite' : 'none', opacity: t.done ? 0.55 : 1 }}>{t.icon}</div>
+          <div style={{ flex: 1, minWidth: 0, font: `${cur ? 900 : 800} ${cur ? 18 : 16}px ${NUNITO}`, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: t.done ? C.doneInk : '#fff', textShadow: t.done ? 'none' : '0 1px 3px rgba(0,0,0,.35)' }}>{t.name}</div>
+          <div style={{ font: `700 13px ${NUNITO}`, whiteSpace: 'nowrap', color: t.done ? 'rgba(58,48,38,.8)' : 'rgba(255,255,255,.9)' }}>{t.done ? '✓ ' : ''}{t.shownMinutes} min</div>
+        </div>
+      </button>
+      <button
+        onClick={(e) => { e.stopPropagation(); onToggleDone(i); }}
+        aria-pressed={t.done}
+        aria-label={t.done ? `${t.name}: feita (desmarcar)` : `Marcar ${t.name} como feita`}
+        style={{
+          // Transparent DOT_HIT square around the visible dot; zIndex keeps it over the NOW line (3).
+          position: 'absolute', zIndex: 4, right: 1, top: '50%', transform: 'translateY(-50%)', width: DOT_HIT, height: DOT_HIT,
+          padding: 0, cursor: 'pointer', background: 'transparent', border: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}
+      >
+        <span
+          aria-hidden="true"
+          style={{
+            width: DOT, height: DOT, borderRadius: 999, boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', font: `900 15px ${NUNITO}`,
+            ...(t.done
+              ? { background: '#fff', color: C.check, border: 0 }
+              : { background: 'rgba(255,255,255,.18)', color: 'transparent', border: '3px solid rgba(255,255,255,.92)' }),
+          }}
+        >
+          ✓
+        </span>
+      </button>
+    </div>
   );
 }
 
-export default function RoutinePhone({ v, closing, clock, isMorning, onPick, onJump, onReset, badge }) {
+export default function RoutinePhone({ v, closing, clock, isMorning, onPick, onJump, onToggleDone, onExtend, onReset, badge }) {
   const ot = v.overtime;
   const agora = agoraColors({ urgent: v.urgent, overtime: ot, color: v.current.color });
-  const nowY = v.elapsedOnTrack * PX_PER_MIN;
-
+  // Done rows first (sized by max(planned, original) minutes), then the task in progress
+  // and the pending ones (PLANNED minutes), then the closing row; see ribbonItems.
+  const col = ribbonColumn(v.blocks, { perMin: PX_PER_MIN, minSize: MIN_ROW_H });
   const trackRef = useRef(null);
+  const trackH = useHeight(trackRef);
+  const closeH = Math.max(CLOSE_MIN_H, Math.round(trackH * (1 - FOLLOW_AT)));
+  const nowY = col.yOf(v.planElapsed, closeH);
+  const closingLit = ot || v.allDone;
+
   const manualUntil = useRef(0);
   const autoScrolling = useRef(false);
 
@@ -95,10 +156,10 @@ export default function RoutinePhone({ v, closing, clock, isMorning, onPick, onJ
       {/* AGORA card */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9, background: agora.bg, border: `3px solid ${agora.border}`, borderRadius: 20, padding: '12px 13px', boxShadow: '0 4px 0 rgba(0,0,0,.06)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 54, height: 54, flex: 'none', borderRadius: 17, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, background: `${v.current.color}2e` }}>{v.current.icon}</div>
+          <div style={{ width: 54, height: 54, flex: 'none', borderRadius: 17, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30 / Math.sqrt(v.current.catalogIds?.length || 1), whiteSpace: 'nowrap', background: `${v.current.color}2e` }}>{v.current.icon}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ font: `900 11px ${NUNITO}`, letterSpacing: 2, color: C.muted }}>AGORA</div>
-            <div style={{ fontFamily: FREDOKA, fontSize: 26, fontWeight: 600, lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.current.name}</div>
+            <div style={{ fontFamily: FREDOKA, fontSize: 26, fontWeight: 600, lineHeight: 1.15, ...(v.current.catalogIds?.length > 1 ? { fontSize: 20, overflowWrap: 'anywhere' } : { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }) }}>{v.current.name}</div>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontFamily: FREDOKA, fontWeight: 600, fontSize: 34, lineHeight: 1.1, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', color: agora.count }}>{v.countdown}</div>
@@ -114,13 +175,27 @@ export default function RoutinePhone({ v, closing, clock, isMorning, onPick, onJ
       {/* Scrolling vertical ribbon + pinned closing zone */}
       <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
         <div ref={trackRef} onScroll={onScroll} className="no-scrollbar" style={{ position: 'relative', flex: 1, minHeight: 0, borderRadius: 20, background: C.track, overflowY: 'auto', overflowX: 'hidden' }}>
-          <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: v.total * PX_PER_MIN }}>
-            {v.blocks.map((t, i) => (
-              <TaskRow key={t.id ?? i} t={t} i={i} count={v.blocks.length} v={v} onJump={onJump} />
+          <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: col.closeY + closeH }}>
+            {col.rows.map((r, k) => (
+              <TaskRow key={v.blocks[r.i].id ?? r.i} t={v.blocks[r.i]} i={r.i} first={k === 0} early={r.early} v={v} height={r.h} onJump={onJump} onToggleDone={onToggleDone} />
             ))}
-            {!ot && (
-              <div style={{ position: 'absolute', zIndex: 3, left: 0, right: 0, top: nowY, height: 5, transform: 'translateY(-2px)', background: C.ink, borderRadius: 999, boxShadow: '0 0 0 2px rgba(255,246,233,.85)', pointerEvents: 'none' }} />
-            )}
+            <div
+              data-testid="phone-closing"
+              data-lit={closingLit ? 'true' : 'false'}
+              style={{
+                flex: 'none', height: closeH, display: 'flex', alignItems: 'flex-start', gap: 10, padding: '14px 12px', boxSizing: 'border-box',
+                borderRadius: col.rows.length ? '0 0 20px 20px' : 20,
+                background: ot ? hatch(closing.color, 14) : closingLit ? `${closing.color}66` : `${closing.color}2e`,
+              }}
+            >
+              <div style={{ fontSize: closingLit ? 30 : 24, lineHeight: 1, flex: 'none', opacity: closingLit ? 1 : 0.6 }}>{closing.icon}</div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ font: `900 17px/1.1 ${NUNITO}`, color: ot ? '#fff' : closingLit ? C.ink : C.muted, textShadow: ot ? '0 1px 3px rgba(0,0,0,.3)' : 'none' }}>{closing.name}</div>
+                <div style={{ font: `700 13px ${NUNITO}`, whiteSpace: 'nowrap', color: ot ? 'rgba(255,255,255,.95)' : C.muted }}>{v.closeSub}</div>
+              </div>
+            </div>
+            {/* NOW: in the row of the task in progress, or in the closing row once the last task is over. */}
+            <div data-testid="phone-now-line" style={{ position: 'absolute', zIndex: 3, left: 0, right: 0, top: nowY, height: 5, transform: 'translateY(-2px)', background: C.ink, borderRadius: 999, boxShadow: '0 0 0 2px rgba(255,246,233,.85)', pointerEvents: 'none' }} />
           </div>
         </div>
 
@@ -131,9 +206,10 @@ export default function RoutinePhone({ v, closing, clock, isMorning, onPick, onJ
         }}>
           <div style={{ fontSize: ot ? 32 : 24, lineHeight: 1, flex: 'none', animation: 'bob 2.6s ease-in-out infinite', opacity: ot ? 1 : 0.5 }}>{closing.icon}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ font: `900 ${ot ? 18 : 16}px ${NUNITO}`, whiteSpace: 'nowrap', color: ot ? '#fff' : C.muted, textShadow: ot ? '0 1px 3px rgba(0,0,0,.3)' : 'none' }}>{closing.name}</div>
+            <div style={{ font: `900 ${ot ? 18 : 16}px/1.1 ${NUNITO}`, color: ot ? '#fff' : C.muted, textShadow: ot ? '0 1px 3px rgba(0,0,0,.3)' : 'none' }}>{closing.name}</div>
             <div style={{ font: `700 13px ${NUNITO}`, whiteSpace: 'nowrap', color: ot ? 'rgba(255,255,255,.95)' : C.muted }}>{v.closeSub}</div>
           </div>
+          <button onClick={onExtend} aria-label={`Mais 5 minutos até ${closing.name}`} style={{ flex: 'none', background: '#fff', color: C.ink, padding: '6px 12px', borderRadius: 999, border: 0, font: `900 14px ${NUNITO}`, whiteSpace: 'nowrap', cursor: 'pointer', boxShadow: '0 2px 0 rgba(0,0,0,.18)' }}>+5 min</button>
           {ot && (
             <button onClick={onReset} style={{ flex: 'none', background: '#fff', color: C.ink, padding: '6px 12px', borderRadius: 999, border: 0, font: `900 14px ${NUNITO}`, whiteSpace: 'nowrap', cursor: 'pointer', boxShadow: '0 2px 0 rgba(0,0,0,.18)' }}>↺ Recomeçar</button>
           )}

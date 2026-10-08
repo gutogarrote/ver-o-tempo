@@ -78,7 +78,11 @@ Para a tela da criança ficar limpa, os ajustes ficam escondidos atrás do botã
 - **⚙️ Rotinas:** o editor completo, com todas as rotinas e o horário em que cada uma deve terminar.
 - **Horário limite:** a hora em que a rotina precisa acabar (por exemplo, a hora de sair para a escola). O app calcula de trás para frente quando cada tarefa deve começar.
 
-As mudanças ficam guardadas **no próprio aparelho**, no navegador.
+As mudanças ficam guardadas **no próprio aparelho**, no navegador. Ao salvar no editor, o link da barra é atualizado sem recarregar: copie e guarde esse novo endereço para reabrir ou compartilhar tarefas, ordem, durações, nomes e horário final. No menu, use **Salvar horário** para incluir o prazo no link.
+
+### Configuração por URL
+
+Abra um link como `/?rotina=1.n.ba-20.ja-25.ma-de-5.1930` para carregar tarefas simples ou combinadas, ordem, minutos e final opcional. Os atalhos `/0720` e `/1930` abrem o padrão da manhã/noite com esse horário final. Consulte o [guia completo para gerar links de rotina](docs/url-rotina.md), com catálogo, exemplos e regras de edição e recarga.
 
 ### Dicas para funcionar melhor
 - **Comece com poucas tarefas.** Quatro ou cinco já fazem diferença. Dá para aumentar depois.
