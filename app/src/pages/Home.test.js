@@ -224,3 +224,24 @@ describe('done marks survive deadline changes and saves', () => {
     expect(dot('Banho')).toHaveAttribute('aria-pressed', 'true');
   });
 });
+
+
+describe.each([false, true])('independent manual marks (phone=%s)', (phone) => {
+  test.each([[0, 1, 2], [2, 1, 0]])('undo first/intermediate after order %s', (...order) => {
+    setPhone(phone);
+    const names = ['Café da manhã', 'Mochila', 'Dentes', 'Sapatos'];
+    const morning = { monday: { morning: { name: 'Manhã', endTime: '07:20',
+      tasks: names.map((name, i) => ({ id: i, name, minutes: 10, icon: '☀️', color: '#f97316' })),
+    } } };
+    render(<Home routines={morning} setRoutines={jest.fn()} currentTime={today(6, 40)} />);
+    order.forEach((i) => fireEvent.click(dot(names[i])));
+    fireEvent.click(dot(names[0]));
+    expect(dot(names[0])).toHaveAttribute('aria-pressed', 'false');
+    expect(dot(names[1])).toHaveAttribute('aria-pressed', 'true');
+    expect(dot(names[2])).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(dot(names[1]));
+    expect(dot(names[1])).toHaveAttribute('aria-pressed', 'false');
+    expect(dot(names[2])).toHaveAttribute('aria-pressed', 'true');
+    expect(dot(names[3])).toHaveAttribute('aria-pressed', 'false');
+  });
+});
