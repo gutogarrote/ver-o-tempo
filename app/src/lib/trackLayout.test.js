@@ -113,7 +113,7 @@ describe('ribbonItems / ribbonTrack (done tasks behind the marker, closing after
   test('exact scale from the marker on; done part and elapsed part only visual; marker reachable; inverse mapping', () => {
     const w = ribbonTrack({ ...opts, blocks, nowMin: 5 });
     const ppm = 30;
-    const [c, a, b, d, e] = w.items;
+    const [c, a, b, , e] = w.items;
     // C (10 min = 300 px) fills the 300 px left of the marker: A's 5 elapsed minutes are
     // drawn compressed (to nothing), C stays whole and right behind the marker.
     expect(c.w).toBeCloseTo(10 * ppm, 9);

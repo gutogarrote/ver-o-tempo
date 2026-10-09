@@ -47,9 +47,11 @@ describe('phone', () => {
       const b = dot(name);
       expect(px(b.style.width)).toBe(DOT_HIT);
       expect(px(b.style.height)).toBe(DOT_HIT);
+      // eslint-disable-next-line testing-library/no-node-access -- Geometry requires the containing box/DOM order; jsdom has no layout or accessible equivalent.
       expect(px(b.style.height)).toBeLessThanOrEqual(px(b.parentElement.style.height));
       // Over the NOW line (zIndex 3) and the row has no stacking context of its own.
       expect(Number(b.style.zIndex)).toBeGreaterThan(3);
+      // eslint-disable-next-line testing-library/no-node-access -- Geometry requires the containing box/DOM order; jsdom has no layout or accessible equivalent.
       expect(b.parentElement.style.zIndex).toBe('');
     }
   });
@@ -83,6 +85,7 @@ describe('TV', () => {
     const lefts = ['Jantar', 'Pente', 'Dentes', 'Historinha'].map((n) => px(dot(n).style.left));
     for (let i = 1; i < 4; i++) expect(lefts[i] - lefts[i - 1]).toBeGreaterThanOrEqual(DOT_GAP - 1e-6);
     // Each crowded dot stays within one dot of its (narrow) block.
+    // eslint-disable-next-line testing-library/no-node-access -- Geometry requires the containing box/DOM order; jsdom has no layout or accessible equivalent.
     const lead = px(screen.getAllByTestId('tv-block')[0].parentElement.style.left);
     expect(Math.abs(lefts[1] + DOT / 2 - lead - 40.5 * perMin)).toBeLessThan(DOT);
     expect(Math.abs(lefts[2] + DOT / 2 - lead - 42 * perMin)).toBeLessThan(DOT);
@@ -109,6 +112,7 @@ describe('TV', () => {
       const { unmount } = renderAt(new Date(at(19, 7).getTime() + s * 1000), false);
       const widths = screen.getAllByTestId('tv-block').map((b) => px(b.style.width));
       const i = s < 40 * 60 ? 0 : s < 41 * 60 ? 1 : s < 43 * 60 ? 2 : 3;
+      // eslint-disable-next-line testing-library/no-node-access -- Geometry requires the containing box/DOM order; jsdom has no layout or accessible equivalent.
       const lead = px(screen.getAllByTestId('tv-block')[0].parentElement.style.left);
       const line = screen.getByTestId('tv-now-line');
       const x = px(line.style.left) + px(line.style.width) / 2 + px(screen.getByTestId('tv-track').scrollLeft) - lead;

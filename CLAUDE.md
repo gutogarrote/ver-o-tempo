@@ -1,67 +1,42 @@
-# CLAUDE.md
+# Guia técnico do repositório
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Estado e arquitetura atuais
 
-## Project Overview
+Rotina da Nina visualiza manhã/noite em uma fita para famílias. Este guia vale para
+qualquer implementador; AGENTS.md contém as convenções de contribuição.
 
-"Ver o Tempo" is a React-based web application that visualizes daily routines on a linear timeline, designed for children and families. The app displays tasks as colored blocks on a scrolling horizontal timeline with real-time progress indicators and audio alerts.
+- `app/src/App.js`: carregamento e normalização `duration → minutes`, precedência URL/storage,
+  fallback público/embarcado e relógio por timestamp.
+- `pages/Home.js`: seleção manhã/noite, prazo, operações da sessão, editores e gravação.
+- `components/fita/RoutineTV.js`, `RoutinePhone.js`, `ParentMenu.js`, `theme.js`: UI aprovada.
+- `RoutineEditor.js`, `DefaultRoutineEditor.js`: editores; AudioAlerts permanece inativo.
+- `lib/schedule.js`: agenda e operações; `routineView.js` e `trackLayout.js`: apresentação/geometria;
+  `timeline.js`: helpers de horário; `routineUrl.js` e `taskCatalog.json`: contrato de links.
+- `public/routines.json` e `lib/defaultRoutines.json`: padrões semanticamente iguais,
+  protegidos por teste. Não remover a cópia embarcada, usada no fallback.
 
-## Development Commands
+Storage usa `routines`; sessão em memória não sobrevive ao reload. Queries válidas vencem
+storage e persistem; inválidas não gravam; atalhos usam padrões sem gravação inicial.
+A tela principal lê `monday`; outros dias do editor não implicam seleção automática.
+O encerramento dura até 180 minutos após o prazo. Não há backend, PWA/offline garantido,
+notificações, sincronização ou serviço de deploy configurado.
 
-This is a React application using Create React App. All commands should be run from the `/app` directory:
+## Comandos
+
+Node 22.23.3 (`.nvmrc`, engines); Python 3 no PATH é necessário ao teste da documentação.
+Todos os comandos npm são executados em `app/`:
 
 ```bash
-cd app
-npm start       # Start development server (http://localhost:3000)
-npm test        # Run tests
-npm run build   # Build for production
+npm ci
+npm start
+npm run lint -- --max-warnings=0
+CI=true npm test -- --watchAll=false --runInBand
+CI=true npm run build
+npm audit
 ```
 
-## Architecture
-
-### Core Components
-
-- **App.js** (`app/src/App.js`): Main application component managing state for routines, selected routine, end time, and editing mode
-- **RoutineSelector** (`app/src/components/RoutineSelector.js`): Allows users to select from available routines
-- **EndTimeSetter** (`app/src/components/EndTimeSetter.js`): Interface for setting routine end time
-- **Timeline** (`app/src/components/Timeline.js`): Main timeline view with scrolling task blocks
-- **RoutineEditor** (`app/src/components/RoutineEditor.js`): Interface for editing routines (add/edit/delete tasks)
-- **AudioAlerts** (`app/src/components/AudioAlerts.js`): Handles audio notifications for task milestones
-- **TimeIndicator** (`app/src/components/TimeIndicator.js`): Shows current time position on timeline
-
-### Data Structure
-
-- **Routines** are stored in `app/public/routines.json` and cached in localStorage
-- Each routine has: name, endTime, and tasks array
-- Tasks have: id, name, duration (minutes), color (hex), icon (emoji)
-- Currently supports different routines for each day (monday.morning, monday.evening, etc.)
-
-### Timeline Logic
-
-- Timeline calculates start time by subtracting total task duration from end time
-- Tasks are rendered as blocks with width proportional to duration
-- Timeline scrolls left as time progresses (translateX with negative percentage)
-- Current time indicator is fixed at 25% from left edge
-
-## Key Features
-
-1. **Time Visualization**: Linear horizontal timeline showing task progression
-2. **Audio Alerts**: Plays sounds at 5 minutes, 1 minute, and task completion
-3. **Responsive Design**: Works on TV, tablet, phone, PC using Tailwind CSS
-4. **Local Storage**: Routines persist between sessions via localStorage
-5. **Routine Editing**: Parents can modify tasks, durations, colors, and icons
-
-## Technical Stack
-
-- **Frontend**: React 19.1.1 with functional components and hooks
-- **Styling**: Tailwind CSS 3.4.17
-- **Testing**: React Testing Library with Jest
-- **Audio**: Local sound files in `app/public/sounds/`
-- **No Backend**: Pure client-side application
-
-## Development Notes
-
-- Application state flows: RoutineSelector → EndTimeSetter → Timeline
-- Timeline uses viewport width units (vw) for task block sizing
-- Time calculations use JavaScript Date objects with minute precision
-- Icons are emoji characters stored as strings in routine data
+A suíte tem 220 cenários em 8 arquivos, sem skip/todo. Preserve seus asserts e contratos.
+Exceções de acesso DOM são por linha e justificadas para geometria em jsdom; não desligue
+regras globalmente. CRA permanece nesta fase; audit/deprecações transitivas são dívida de
+ferramentas, não resolvidas pela classificação devDependencies. Não use audit fix --force.
+PROGRESS e specifications distinguem o estado atual do histórico; CHANGES.MD é histórico.

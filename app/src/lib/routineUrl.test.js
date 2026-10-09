@@ -82,10 +82,13 @@ test('all Markdown links and executable JS/Python examples parse and round trip'
     const url = new URL(link);
     const parsed = parseRoutineUrl(url.search, url.pathname);
     expect(parsed.status).toBe('valid');
-    if (parsed.source === 'query') {
-      expect(serializeRoutineUrl('http://localhost:3000/', parsed.period, parsed.routine.tasks,
-        /\.\d{4}$/.test(url.search) ? parsed.routine.endTime : undefined)).toBe(link);
-    }
+  });
+  links.filter(link => new URL(link).searchParams.has('rotina')).forEach(link => {
+    const url = new URL(link);
+    const parsed = parseRoutineUrl(url.search, url.pathname);
+    expect(parsed.source).toBe('query');
+    expect(serializeRoutineUrl('http://localhost:3000/', parsed.period, parsed.routine.tasks,
+      /\.\d{4}$/.test(url.search) ? parsed.routine.endTime : undefined)).toBe(link);
   });
   for (const language of ['python', 'js']) {
     const code = doc.match(new RegExp('```' + language + '\n([\\s\\S]*?)```'))[1];

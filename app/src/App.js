@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import AudioAlerts from "./components/AudioAlerts";
-import "./App.css";
 import Home from "./pages/Home";
 import defaultRoutines from './lib/defaultRoutines.json';
 import { applyRoutineUrl, parseRoutineUrl } from './lib/routineUrl';

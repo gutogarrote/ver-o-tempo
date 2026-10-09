@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import Home from '../../pages/Home';
-import { CLOSE_MIN_H, DOT_HIT, MIN_ROW_H, PX_PER_MIN } from './RoutinePhone';
+import { CLOSE_MIN_H, DOT_HIT, PX_PER_MIN } from './RoutinePhone';
 import { DONE_MIN_W, DOT, DOT_GAP, FADE_W, MANUAL_HOLD_MS, NOW_X, PX_PER_MIN as TV_PX_PER_MIN, RIBBON_W, WINDOW_MIN } from './RoutineTV';
 
 // marca-feito-scroll(-fix): blocks/rows follow the PLANNED (redistributed) minutes. TV: the
@@ -48,6 +48,7 @@ function renderAt(now, phone, rs = routines) {
 // content width = blocks) and a scrollLeft clamped like a browser does.
 const scrollPos = new WeakMap();
 const isTrack = (el) => el.dataset?.testid === 'tv-track';
+// eslint-disable-next-line testing-library/no-node-access -- Geometry requires the containing box/DOM order; jsdom has no layout or accessible equivalent.
 const contentW = (el) => Math.max(RIBBON_W, px(el.firstChild.style.width));
 beforeAll(() => {
   Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get() { return isTrack(this) ? RIBBON_W : 0; } });
@@ -70,6 +71,7 @@ describe('TV: fixed NOW marker over a 40-minute window (70-minute routine)', () 
   const line = () => screen.getByTestId('tv-now-line');
   const flag = () => screen.getByTestId('tv-now-flag');
   const widths = () => screen.getAllByTestId('tv-block').map((b) => px(b.style.width));
+  // eslint-disable-next-line testing-library/no-node-access -- Geometry requires the containing box/DOM order; jsdom has no layout or accessible equivalent.
   const lead = () => px(screen.getAllByTestId('tv-block')[0].parentElement.style.left);
   // Minute of the plan (from 19:20) under the marker, read from the DOM geometry.
   const underMin = () => (track().scrollLeft + NOW_X - lead()) / PPM;
@@ -81,6 +83,7 @@ describe('TV: fixed NOW marker over a 40-minute window (70-minute routine)', () 
   };
   const expectMarkerFixed = () => {
     expect(lineX()).toBeCloseTo(RIBBON_W * 0.25, 6);
+    // eslint-disable-next-line testing-library/no-node-access -- Geometry requires the containing box/DOM order; jsdom has no layout or accessible equivalent.
     expect(line().parentElement).toBe(track().parentElement); // overlay, not inside the track
     expect(track().contains(line())).toBe(false);
     expect(track().contains(flag())).toBe(false);
@@ -116,7 +119,7 @@ describe('TV: fixed NOW marker over a 40-minute window (70-minute routine)', () 
     expect(line().dataset.mode).toBe('now');
     // The follow position is reachable (never clamped by the end of the content).
     expect(track().scrollLeft).toBeLessThanOrEqual(track().scrollWidth - RIBBON_W + 1e-6);
-    if (min > 70) expect(screen.getByTestId('tv-overtime')).toBeInTheDocument();
+    expect(screen.queryByTestId('tv-overtime') !== null).toBe(min >= 70);
   });
 
   test('follows the clock tick by tick; at the end the last block (and dot) is on screen', () => {
@@ -207,6 +210,7 @@ describe('TV: fixed NOW marker over a 40-minute window (70-minute routine)', () 
   const order = () => screen.getAllByTestId('tv-block').map((b) => Number(b.dataset.index));
   const blockX = (i) => {
     const b = screen.getAllByTestId('tv-block').find((el) => Number(el.dataset.index) === i);
+    // eslint-disable-next-line testing-library/no-node-access -- Geometry requires the containing box/DOM order; jsdom has no layout or accessible equivalent.
     return { x: px(b.parentElement.style.left), w: px(b.style.width), el: b };
   };
   // Plan minute under the marker, measured from the block of a pending task whose plan start
@@ -480,6 +484,7 @@ describe('TV: fixed NOW marker over a 40-minute window (70-minute routine)', () 
     flip(false);
     const closingLeft = px(screen.getByTestId('tv-closing').style.left);
     expect(track().scrollLeft + NOW_X).toBeGreaterThanOrEqual(closingLeft);
+    // eslint-disable-next-line testing-library/no-node-access -- Geometry requires the containing box/DOM order; jsdom has no layout or accessible equivalent.
     expect(closingLeft).toBeCloseTo(px(screen.getAllByTestId('tv-block')[4].parentElement.style.left) + px(screen.getAllByTestId('tv-block')[4].style.width), 6);
     setPhone(false);
   });
@@ -529,6 +534,7 @@ describe('phone: rows follow the redistributed minutes', () => {
     for (const name of ['A', 'B', 'C', 'D', 'E']) {
       const b = dot(name);
       expect(px(b.style.width)).toBe(DOT_HIT);
+      // eslint-disable-next-line testing-library/no-node-access -- Geometry requires the containing box/DOM order; jsdom has no layout or accessible equivalent.
       expect(px(b.style.height)).toBeLessThanOrEqual(px(b.parentElement.style.height));
       expect(Number(b.style.zIndex)).toBeGreaterThan(Number(screen.getByTestId('phone-now-line').style.zIndex));
     }
@@ -551,6 +557,7 @@ describe('phone: rows follow the redistributed minutes', () => {
   ])('closing row right after the last row (%s); NOW enters it when the last task ends', (_, now, inside) => {
     renderAt(now, true);
     const total = heights().reduce((a, b) => a + b, 0);
+    // eslint-disable-next-line testing-library/no-node-access -- Geometry requires the containing box/DOM order; jsdom has no layout or accessible equivalent.
     expect(closingRow().previousSibling).toBe(rows()[4]);
     expect(px(closingRow().style.height)).toBeGreaterThanOrEqual(CLOSE_MIN_H);
     expect(nowY() >= total).toBe(inside);

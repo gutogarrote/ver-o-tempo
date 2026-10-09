@@ -42,7 +42,7 @@ Ao lado, as **próximas duas tarefas** e a hora em que cada uma começa.
 ### E se passar da hora?
 Sem drama. No fim da fita existe um espaço de encerramento: **"Hora de sair" 🚗** de manhã e **"Hora de dormir" 🛏️** à noite.
 
-Se o horário acabar e ainda faltar alguma coisa, o app **não some nem recomeça sozinho**. O espaço de encerramento acende e mostra com calma onde vocês deveriam estar ("É hora de estar saindo pra escola — se ainda falta algo, pega no caminho"). O cartão mostra há quanto tempo passou da hora (`+16:48`). Quando quiser começar de novo, é só tocar em **↺ Recomeçar**.
+Se o horário acabar e ainda faltar alguma coisa, o app **mantém o encerramento por até três horas após o prazo**. O espaço de encerramento acende e mostra com calma onde vocês deveriam estar ("É hora de estar saindo pra escola — se ainda falta algo, pega no caminho"). O cartão mostra há quanto tempo passou da hora (`+16:48`). Após essa janela, o plano passa para a próxima ocorrência. Você também pode tocar em **↺ Recomeçar**.
 
 ![Depois do horário: a zona de "Hora de sair" acesa](docs/screenshots/tv-passou-da-hora.png)
 
@@ -98,12 +98,12 @@ Por enquanto o app roda **a partir de um computador da casa**. Você instala uma
 
 ### PELO TERMINAL
 
-Para quem já tem [Git](https://git-scm.com/) e [Node.js](https://nodejs.org/) (versão LTS) instalados:
+Para quem já tem [Git](https://git-scm.com/) e [Node.js](https://nodejs.org/) (22.23.3 LTS, conforme `.nvmrc`) instalados:
 
 ```bash
 git clone https://github.com/camerafilme/ninarotina.git
 cd ninarotina/app
-npm install
+npm ci
 npm start
 ```
 
@@ -117,7 +117,7 @@ Não é preciso saber programar: basta seguir os passos.
 O Node.js é um programa gratuito que faz o app funcionar.
 
 1. Entre em **[nodejs.org](https://nodejs.org/)**.
-2. Baixe a versão marcada como **LTS** e instale como qualquer outro programa (pode ir clicando em "Avançar"/"Continuar").
+2. Baixe a versão **22.23.3 LTS** e instale como qualquer outro programa (pode ir clicando em "Avançar"/"Continuar").
 
 #### 2. Baixe o app
 1. No topo desta página, clique no botão verde **`<> Code`** e depois em **Download ZIP**.
@@ -134,7 +134,7 @@ O terminal é uma janela onde se digitam comandos. Não se assuste: são só doi
 No terminal, digite o comando abaixo e aperte **Enter**. Ele baixa o que o app precisa e só é necessário na primeira vez; pode levar alguns minutos.
 
 ```
-npm install
+npm ci
 ```
 
 Quando terminar, digite:
@@ -173,7 +173,7 @@ Este é um projeto em andamento. Por enquanto:
 
 ## 🔒 Privacidade
 
-O app não tem cadastro, não pede login e não envia nenhuma informação da sua família para lugar nenhum. As rotinas ficam guardadas só no navegador de cada aparelho.
+O app não tem cadastro, login ou backend de rotinas. As configurações ficam no navegador de cada aparelho. Fontes são carregadas do Google Fonts; um link compartilhado pode expor os nomes e horários que transporta.
 
 ## 🙏 De onde veio
 
@@ -189,8 +189,25 @@ Este projeto nasceu do [ver-o-tempo](https://github.com/gutogarrote/ver-o-tempo)
 
 - Each task (wake up, breakfast, brush teeth, get dressed…) is a colored block sized by how long it takes. A **NOW** marker moves along in real time.
 - A big card shows the current task and a countdown. It turns red in the last 2 minutes and lists what's coming next.
-- If time runs out, it doesn't reset. It calmly shows where you should be by now ("time to leave" / "time to sleep") until you tap **Recomeçar** (restart).
+- After the deadline, it keeps the closing zone for up to three hours before rolling to the next occurrence. It calmly shows where you should be by now ("time to leave" / "time to sleep") until you tap **Recomeçar** (restart).
 - It adapts to the screen: a horizontal ribbon on a TV, a vertical scrolling list on a phone.
 - Parents can edit tasks, emojis, colors, durations and the deadline behind the ✨ button.
-- **Install:** get [Node.js](https://nodejs.org/) (LTS), download this repo as a ZIP, open a terminal in the `app` folder and run `npm install`, then `npm start`. To use it on a TV or phone on the same Wi-Fi, open the "On Your Network" address that `npm start` prints.
+- **Install:** get [Node.js](https://nodejs.org/) (LTS), download this repo as a ZIP, open a terminal in the `app` folder and run `npm ci`, then `npm start`. To use it on a TV or phone on the same Wi-Fi, open the "On Your Network" address that `npm start` prints.
 - **Not yet available:** sound alerts, different routines per weekday, and syncing between devices. Everything stays in the browser: no accounts, no data collection.
+
+## Manutenção e verificações
+
+A fase 1 mantém Create React App, React e Tailwind, sem mudança de interface ou contratos.
+Use Node **22.23.3** (`nvm use` na raiz) e Python 3 no PATH para os exemplos executáveis de URL.
+Em `app/`: `npm ci`, `npm run lint -- --max-warnings=0`,
+`CI=true npm test -- --watchAll=false --runInBand` e `CI=true npm run build`.
+O CI executa esses quatro checks; a suíte contém 220 cenários em 8 arquivos, sem skip/todo.
+`npm audit` é uma triagem separada: a dívida transitiva do CRA continua e não se promete audit zero.
+
+Configurações usam a chave `routines` de localStorage por navegador/origem; a sessão
+(conclusões, saltos e ajustes) fica em memória e é recalculada ao recarregar.
+Links transportam somente o período selecionado, sem backup completo de cores/ícones.
+Uma query válida prevalece sobre storage; query inválida usa padrões sem gravar;
+`/0720` e `/1930` usam padrões sem carregar ou gravar configurações locais.
+Não há sincronização, backend, service worker ou garantia de abertura offline.
+Fontes externas e links compartilhados também devem ser considerados ao avaliar privacidade.

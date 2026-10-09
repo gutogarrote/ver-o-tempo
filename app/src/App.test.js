@@ -44,10 +44,10 @@ test('URL beats local, selects evening, preserves morning and edits across ticks
   view.unmount();
   jest.useRealTimers();
   open('?utm=irrelevant');
-  const plain = render(<App />);
+  const { unmount } = render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: /Noite/ }));
   expect(screen.getByRole('button', { name: 'Pular para Banho editado' })).toBeInTheDocument();
-  plain.unmount();
+  unmount();
   open('?rotina=1%7Cn%7Cba%3A15%2Cja%3A20');
   render(<App />);
   expect(await screen.findByRole('button', { name: 'Pular para Banho' })).toBeInTheDocument();
@@ -94,9 +94,9 @@ test('irrelevant query loads defaults then keeps local config', async () => {
 test('custom HTML-looking name renders as text', async () => {
   const name = '<img src=x onerror=alert(1)>';
   open('?' + new URLSearchParams({ rotina: '1|n|~' + encodeURIComponent(name) + ':5' }));
-  const { container } = render(<App />);
+  render(<App />);
   expect(await screen.findByRole('button', { name: 'Pular para ' + name })).toBeInTheDocument();
-  expect(container.querySelector('img[src="x"]')).toBeNull();
+  expect(screen.queryAllByRole('img', { hidden: true }).filter(img => img.getAttribute('src') === 'x')).toHaveLength(0);
 });
 
 test('URL works if storage and default fetch fail', async () => {
@@ -151,8 +151,11 @@ test('full editor preserves compound metadata and changed duration', async () =>
   await screen.findByRole('button', { name: 'Pular para Lavar as mãos + Escovar os dentes' });
   fireEvent.click(screen.getByRole('button', { name: 'Menu dos pais' }));
   fireEvent.click(screen.getByRole('button', { name: /Rotinas/ }));
-  const name = screen.getByDisplayValue('Lavar as mãos + Escovar os dentes');
-  fireEvent.change(name.parentElement.querySelector('input[type="number"]'), { target: { value: '8' } });
+  // Full editor lists the fixture morning first, then the URL's single evening task.
+  const durations = screen.getAllByRole('spinbutton');
+  expect(durations).toHaveLength(2);
+  expect(durations[1]).toHaveValue(5);
+  fireEvent.change(durations[1], { target: { value: '8' } });
   fireEvent.click(screen.getByRole('button', { name: 'Salvar Alterações' }));
   expect(stored().monday.evening.tasks[0]).toMatchObject({ minutes: 8, catalogIds: ['ma', 'de'], icon: '🧼🪥' });
 });
@@ -177,8 +180,8 @@ test('required example saves exact URL, preserves storage/history and reload rep
   const replace = jest.spyOn(window.history, 'replaceState');
   const historyLength = window.history.length;
   edit();
-  for (let i = 0; i < 2; i++) fireEvent.click(screen.getByDisplayValue('Jantar').parentElement.querySelector('button[aria-label="Mover tarefa para cima"]'));
-  fireEvent.change(screen.getByDisplayValue('Fazer cocô').parentElement.querySelector('input[type="number"]'), { target: { value: '10' } });
+  for (let i = 0; i < 2; i++) fireEvent.click(screen.getAllByRole('button', { name: 'Mover tarefa para cima' })[3 - i]);
+  fireEvent.change(screen.getAllByRole('spinbutton')[2], { target: { value: '10' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save Routine' }));
   expect(window.location.href).toBe(window.location.origin + '/?rotina=1.n.ma-5.ja-25.co-10.ba-20.ma-de-5.2040');
   expect(replace).toHaveBeenCalledTimes(1);
@@ -228,9 +231,8 @@ test('full editor saves final time and renamed compound alongside unchanged comp
   fireEvent.click(screen.getByRole('button', { name: 'Menu dos pais' }));
   fireEvent.click(screen.getByRole('button', { name: /Rotinas/ }));
   const name = screen.getByDisplayValue('Lavar as mãos + Escovar os dentes');
-  const section = name.closest('.bg-gray-50');
   fireEvent.change(name, { target: { value: 'Dentes. mãos-e música' } });
-  fireEvent.change(section.querySelector('input[type="time"]'), { target: { value: '22:15' } });
+  fireEvent.change(screen.getByDisplayValue('20:40'), { target: { value: '22:15' } });
   fireEvent.click(screen.getByRole('button', { name: 'Salvar Alterações' }));
   expect(window.location.search).toContain('ma-ma-10.2215');
   expect(window.location.search).toContain('~Dentes');
@@ -315,7 +317,7 @@ test.each([false, true])('integrated URL + completion: marks follow task identit
     fireEvent.click(screen.getByRole('button', { name: 'Marcar Banho como feita' }));
     expect(window.location.href).toBe(original);
     edit();
-    fireEvent.click(screen.getByDisplayValue('Jantar').parentElement.querySelector('button[aria-label="Mover tarefa para cima"]'));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Mover tarefa para cima' })[1]);
     fireEvent.change(screen.getByDisplayValue('Banho'), { target: { value: 'Banho. quentinho-50%' } });
     fireEvent.change(screen.getByDisplayValue('25'), { target: { value: '30' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save Routine' }));

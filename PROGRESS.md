@@ -1,3 +1,22 @@
+# Progresso — Rotina da Nina
+
+## Estado atual (fase 1, 2026-10-08)
+
+- Interface aprovada em `components/fita/`: TV horizontal e celular vertical.
+- App carrega URL/storage/padrões; Home coordena edição e sessão em memória.
+- Agenda, apresentação, geometria e URL têm helpers e 220 cenários em 8 suítes.
+- Manutenção da fase 1: remoção confirmada de componentes mortos, limpeza do template,
+  lint completo, Node fixado, tooling em devDependencies e CI de instalação/lint/test/build.
+- Persistência já funciona em localStorage; sons não estão ativos (AudioAlerts recebe null).
+- Sem migração CRA/Vite, alteração visual, dados novos, backend, PWA ou deploy nesta fase.
+- Audit continua como dívida classificada de tooling; mover dependências não corrige advisories.
+
+## Histórico anterior — não é especificação do produto atual
+
+O registro abaixo descreve etapas e propostas antigas, inclusive componentes removidos,
+placeholder de salvamento e intenções de PWA. Não representa funcionalidades atuais nem
+um plano aprovado. Consulte README, specifications e CLAUDE para o estado vigente.
+
 # Project Log: Ver o Tempo
 
 This document tracks the development progress, decisions made, and next steps for the "Ver o Tempo" application.

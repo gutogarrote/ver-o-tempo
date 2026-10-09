@@ -149,7 +149,7 @@ describe('parents menu (✨)', () => {
     badge.focus();
     fireEvent.click(badge, { detail: 0 }); // keyboard activation (Enter/Space) has detail 0
     expect(screen.getByRole('button', { name: '✏️ Editar esta rotina' })).toHaveFocus();
-    fireEvent.keyDown(document.activeElement, { key: 'Escape' });
+    fireEvent.keyDown(screen.getByRole('button', { name: '✏️ Editar esta rotina' }), { key: 'Escape' });
     expect(panel()).toBeNull();
     expect(badge).toHaveFocus();
     fireEvent.click(badge, { detail: 0 });
@@ -171,7 +171,7 @@ describe('done marks survive deadline changes and saves', () => {
     expect(dot('Dentes')).toHaveAttribute('aria-pressed', 'true');
     expect(dot('Banho')).toHaveAttribute('aria-pressed', 'true');
     expect(dot('Jantar')).toHaveAttribute('aria-pressed', 'false');
-    if (!phone) expect(screen.getByText('TERMINA 20:45')).toBeInTheDocument();
+    expect(screen.queryByText('TERMINA 20:45') !== null).toBe(!phone);
     // Fresh schedule for 20:45 (starts 19:45 → Banho would be in progress at 19:35… it is
     // done, so Jantar runs now) with the marked tasks' time given to the others.
     fireEvent.change(screen.getByLabelText('Horário final'), { target: { value: '20:15' } });

@@ -4,24 +4,6 @@ export function sumMinutes(tasks) {
   return tasks.reduce((s, t) => s + (t.minutes ?? t.duration ?? 0), 0);
 }
 
-// Locate which task index the elapsed minutes falls into.
-// Tasks can have .minutes or .duration; prefers .minutes.
-export function locateTask(elapsedMinutes, tasks) {
-  const getM = (t) => (t.minutes ?? t.duration ?? 0);
-  const total = tasks.reduce((s, t) => s + getM(t), 0);
-  const clamp = Math.max(0, Math.min(total, elapsedMinutes));
-  let acc = 0;
-  for (let i = 0; i < tasks.length; i++) {
-    const d = getM(tasks[i]);
-    if (clamp < acc + d) {
-      return { index: i, inTaskElapsed: clamp - acc, clampedElapsed: clamp, totalMinutes: total };
-    }
-    acc += d;
-  }
-  const last = Math.max(0, tasks.length - 1);
-  return { index: last, inTaskElapsed: getM(tasks[last] || { duration: 0 }), clampedElapsed: total, totalMinutes: total };
-}
-
 // How long after the deadline we keep showing the routine as "overtime"
 // (closing zone lit, counting up) before rolling over to the next occurrence.
 export const OVERTIME_WINDOW_MIN = 180;
@@ -40,10 +22,6 @@ export function computeElapsed({ mode, startTime, deadline, now, totalMinutes, o
   const elapsed = Math.max(0, (nowMs - startTime.getTime()) / 60000);
   const endsAt = new Date(startTime.getTime() + totalMinutes * 60000);
   return { elapsed, endsAt };
-}
-
-export function clampNum(x, a, b) {
-  return Math.max(a, Math.min(b, x));
 }
 
 export function toToday(hhmmStr) {
