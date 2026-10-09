@@ -192,8 +192,8 @@ Este projeto nasceu do [ver-o-tempo](https://github.com/gutogarrote/ver-o-tempo)
 - After the deadline, it keeps the closing zone for up to three hours before rolling to the next occurrence. It calmly shows where you should be by now ("time to leave" / "time to sleep") until you tap **Recomeçar** (restart).
 - It adapts to the screen: a horizontal ribbon on a TV, a vertical scrolling list on a phone.
 - Parents can edit tasks, emojis, colors, durations and the deadline behind the ✨ button.
-- **Install:** get [Node.js](https://nodejs.org/) (LTS), download this repo as a ZIP, open a terminal in the `app` folder and run `npm ci`, then `npm start`. To use it on a TV or phone on the same Wi-Fi, open the "On Your Network" address that `npm start` prints.
-- **Not yet available:** sound alerts, different routines per weekday, and syncing between devices. Everything stays in the browser: no accounts, no data collection.
+- **Install:** get [Node.js](https://nodejs.org/) (22.23.3 LTS, pinned in `.nvmrc`), download this repo as a ZIP, open a terminal in the `app` folder and run `npm ci`, then `npm start`. To use it on a TV or phone on the same Wi-Fi, open the "On Your Network" address that `npm start` prints.
+- **Not yet available:** sound alerts, different routines per weekday, and syncing between devices. Settings stay in each device's browser, with no accounts, login or routines backend. Fonts load from Google Fonts; shared URLs can expose the names and schedules they contain.
 
 ## Manutenção e verificações
 
