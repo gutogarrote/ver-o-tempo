@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 - Root docs: `README.md`, `specifications.md`, `PROGRESS.md`.
-- App code in `app/` (Create React App + Tailwind):
+- App code in `app/` (Vite + Tailwind):
   - `app/src/` React source; `app/src/components/` UI components.
   - `app/public/` static assets (e.g., `routines.json`, `sounds/`).
   - Config: `app/tailwind.config.js`, `app/postcss.config.js`.
@@ -10,24 +10,24 @@
 ## Build, Test, and Development Commands
 - From `app/` directory:
   - `npm start`: Run dev server at `http://localhost:3000`.
-  - `npm test`: Jest in watch mode with React Testing Library.
+  - `npm test`: Vitest in watch mode with React Testing Library.
   - `npm run lint -- --max-warnings=0`: Check production and all tests with zero warnings.
-- `CI=true npm test -- --watchAll=false --runInBand`: Run all 220 scenarios in 8 suites.
+- `npm test -- --run`: Run all 228 scenarios in 8 suites.
 - `npm run build`: Production build to `app/build/`.
 - Install deps once: `cd app && npm ci`.
 
 ## Coding Style & Naming Conventions
-- Language: React (JS), functional components and hooks.
-- Indentation: 2 spaces; prefer single quotes; trailing semicolons allowed by CRA ESLint.
-- Linting: CRA ESLint presets (`react-app`, `react-app/jest`).
+- Language: React (JS/JSX), functional components and hooks.
+- Indentation: 2 spaces; prefer single quotes; trailing semicolons allowed by ESLint.
+- Linting: Explicit flat configuration in `app/eslint.config.mjs` (core, React, hooks, accessibility, Testing Library and jest-dom).
 - Naming:
-  - Components: PascalCase files and exports (e.g., `TimeIndicator.js`).
+  - Components: PascalCase JSX files and exports (e.g., `RoutineTV.jsx`).
   - Functions/variables: camelCase; constants UPPER_SNAKE_CASE.
-  - Tests: `*.test.js` colocated in `src/`.
+  - Tests: `*.test.js` / `*.test.jsx` colocated in `src/`.
 - Styling: Tailwind utility classes in JSX; keep component CSS minimal (`app/src/*.css`).
 
 ## Testing Guidelines
-- Frameworks: Jest + React Testing Library (`@testing-library/*`).
+- Frameworks: Vitest + React Testing Library (`@testing-library/*`).
 - Add tests next to code (e.g., `components/Timeline.test.js`).
 - Write interaction-focused tests (queries by role/label, not implementation details).
 - Run all tests locally with `npm test`; ensure no failing snapshots.
@@ -55,5 +55,7 @@
 - Preserve all scenarios and assertions, with no skip/todo. DOM lint exceptions must be per-line,
   justified only for geometry/scroll measurement. Never disable rules globally.
 - CI runs npm ci, lint with zero warnings, nonwatch tests and production build.
-- CRA remains; classify audit findings by tooling exposure rather than promising zero vulnerabilities.
+- Vite/Vitest replace CRA; classify audit findings by tooling exposure rather than promising zero vulnerabilities.
+- ESLint 9 is deprecated but matches current React/a11y plugin peers; revisit with ESLint 10 support.
+- `npm start` and `npm run preview` bind port 3000 with strictPort; build output remains app/build.
 - PROGRESS/specifications include labeled historical sections; use their current sections as guidance.

@@ -22,5 +22,5 @@ jobs:
           python-version: '3.12'
       - run: npm ci
       - run: npm run lint -- --max-warnings=0
-      - run: CI=true npm test -- --watchAll=false --runInBand
+      - run: npm test -- --run
       - run: CI=true npm run build

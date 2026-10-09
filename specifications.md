@@ -5,13 +5,14 @@
 - Tarefas com nome, emoji, cor e minutos; compatibilidade de leitura com `duration`.
 - Prazo determina o início; concluir, saltar, acrescentar cinco minutos e reiniciar
   ajustam a sessão. Após o prazo há janela de encerramento de 180 minutos.
+- Desmarcar qualquer tarefa preserva as outras marcas manuais; elapsed automático é calculado pelo horário.
 - TV usa fita horizontal; celular usa lista vertical com acompanhamento e rolagem manual.
 - Editores salvam configuração em localStorage e atualizam o link sem reload.
 - URL: contrato detalhado em [docs/url-rotina.md](docs/url-rotina.md); não alterar parser,
-  precedência, atalhos ou conteúdo padrão como parte da manutenção da fase 1.
+  precedência, atalhos ou conteúdo padrão como parte da manutenção da fase 2.
 - Configuração persistente por origem; sessão volátil; sem sincronização entre aparelhos.
 - Sons inativos, sem backend, service worker, offline garantido, notificações ou deploy.
-- Stack preservada: CRA 5, React 19, Tailwind 3, Jest/Testing Library e ESLint do CRA.
+- Stack atual: Vite 8, React 19, Tailwind 3, Vitest 5/Testing Library e ESLint explícito.
   Node 22.23.3 e Python 3; checks documentados em README e AGENTS.
 
 ## Histórico — visão inicial, não requisitos implementados

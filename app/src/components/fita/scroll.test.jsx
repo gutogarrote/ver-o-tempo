@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import Home from '../../pages/Home';
 import { CLOSE_MIN_H, DOT_HIT, PX_PER_MIN } from './RoutinePhone';
@@ -48,7 +49,6 @@ function renderAt(now, phone, rs = routines) {
 // content width = blocks) and a scrollLeft clamped like a browser does.
 const scrollPos = new WeakMap();
 const isTrack = (el) => el.dataset?.testid === 'tv-track';
-// eslint-disable-next-line testing-library/no-node-access -- Geometry requires the containing box/DOM order; jsdom has no layout or accessible equivalent.
 const contentW = (el) => Math.max(RIBBON_W, px(el.firstChild.style.width));
 beforeAll(() => {
   Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get() { return isTrack(this) ? RIBBON_W : 0; } });
@@ -71,7 +71,6 @@ describe('TV: fixed NOW marker over a 40-minute window (70-minute routine)', () 
   const line = () => screen.getByTestId('tv-now-line');
   const flag = () => screen.getByTestId('tv-now-flag');
   const widths = () => screen.getAllByTestId('tv-block').map((b) => px(b.style.width));
-  // eslint-disable-next-line testing-library/no-node-access -- Geometry requires the containing box/DOM order; jsdom has no layout or accessible equivalent.
   const lead = () => px(screen.getAllByTestId('tv-block')[0].parentElement.style.left);
   // Minute of the plan (from 19:20) under the marker, read from the DOM geometry.
   const underMin = () => (track().scrollLeft + NOW_X - lead()) / PPM;
@@ -149,7 +148,7 @@ describe('TV: fixed NOW marker over a 40-minute window (70-minute routine)', () 
   });
 
   test('manual scroll: follow pauses, the marker stays put and shows the time under it, not "now"', () => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     try {
       const { tick } = renderAt(at(19, 25), false);
       fireEvent.pointerDown(track()); // the user grabs the track…
@@ -174,13 +173,13 @@ describe('TV: fixed NOW marker over a 40-minute window (70-minute routine)', () 
       track().scrollLeft = 10;
       fireEvent.scroll(track());
       expect(line().dataset.mode).toBe('browse');
-      act(() => { jest.advanceTimersByTime(MANUAL_HOLD_MS - 100); });
+      act(() => { vi.advanceTimersByTime(MANUAL_HOLD_MS - 100); });
       expect(line().dataset.mode).toBe('browse');
-      act(() => { jest.advanceTimersByTime(200); });
+      act(() => { vi.advanceTimersByTime(200); });
       expect(line().dataset.mode).toBe('now');
       expect(underMin()).toBeCloseTo(6, 6);
     } finally {
-      jest.useRealTimers();
+      vi.useRealTimers();
     }
   });
 
@@ -210,7 +209,6 @@ describe('TV: fixed NOW marker over a 40-minute window (70-minute routine)', () 
   const order = () => screen.getAllByTestId('tv-block').map((b) => Number(b.dataset.index));
   const blockX = (i) => {
     const b = screen.getAllByTestId('tv-block').find((el) => Number(el.dataset.index) === i);
-    // eslint-disable-next-line testing-library/no-node-access -- Geometry requires the containing box/DOM order; jsdom has no layout or accessible equivalent.
     return { x: px(b.parentElement.style.left), w: px(b.style.width), el: b };
   };
   // Plan minute under the marker, measured from the block of a pending task whose plan start
@@ -484,7 +482,6 @@ describe('TV: fixed NOW marker over a 40-minute window (70-minute routine)', () 
     flip(false);
     const closingLeft = px(screen.getByTestId('tv-closing').style.left);
     expect(track().scrollLeft + NOW_X).toBeGreaterThanOrEqual(closingLeft);
-    // eslint-disable-next-line testing-library/no-node-access -- Geometry requires the containing box/DOM order; jsdom has no layout or accessible equivalent.
     expect(closingLeft).toBeCloseTo(px(screen.getAllByTestId('tv-block')[4].parentElement.style.left) + px(screen.getAllByTestId('tv-block')[4].style.width), 6);
     setPhone(false);
   });
@@ -534,7 +531,6 @@ describe('phone: rows follow the redistributed minutes', () => {
     for (const name of ['A', 'B', 'C', 'D', 'E']) {
       const b = dot(name);
       expect(px(b.style.width)).toBe(DOT_HIT);
-      // eslint-disable-next-line testing-library/no-node-access -- Geometry requires the containing box/DOM order; jsdom has no layout or accessible equivalent.
       expect(px(b.style.height)).toBeLessThanOrEqual(px(b.parentElement.style.height));
       expect(Number(b.style.zIndex)).toBeGreaterThan(Number(screen.getByTestId('phone-now-line').style.zIndex));
     }

@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import App from './App';
 
@@ -14,18 +15,18 @@ const edit = () => {
 beforeEach(() => {
   localStorage.clear();
   open('');
-  global.fetch = jest.fn(() => Promise.resolve({ json: () => Promise.resolve(defaults) }));
+  global.fetch = vi.fn(() => Promise.resolve({ json: () => Promise.resolve(defaults) }));
 });
-afterEach(() => { jest.restoreAllMocks(); jest.useRealTimers(); });
+afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 
 test('shows loading state while routines load', () => {
-  global.fetch = jest.fn(() => new Promise(() => {}));
+  global.fetch = vi.fn(() => new Promise(() => {}));
   render(<App />);
   expect(screen.getByText(/carregando rotinas/i)).toBeInTheDocument();
 });
 
 test('URL beats local, selects evening, preserves morning and edits across ticks/plain reentry; reload restores URL', async () => {
-  jest.useFakeTimers();
+  vi.useFakeTimers();
   localStorage.setItem('routines', JSON.stringify(defaults));
   open('?rotina=1%7Cn%7Cba%3A15%2Cja%3A20');
   const view = render(<App />);
@@ -37,12 +38,12 @@ test('URL beats local, selects evening, preserves morning and edits across ticks
   fireEvent.change(screen.getByDisplayValue('15'), { target: { value: '12' } });
   fireEvent.click(screen.getAllByRole('button', { name: 'Mover tarefa para baixo' })[0]);
   fireEvent.click(screen.getByRole('button', { name: 'Save Routine' }));
-  act(() => jest.advanceTimersByTime(3000));
+  act(() => vi.advanceTimersByTime(3000));
   view.rerender(<App />);
   expect(screen.getByRole('button', { name: 'Pular para Banho editado' })).toBeInTheDocument();
   expect(stored().monday.evening.tasks.map(t => [t.name, t.minutes])).toEqual([['Jantar', 20], ['Banho editado', 12]]);
   view.unmount();
-  jest.useRealTimers();
+  vi.useRealTimers();
   open('?utm=irrelevant');
   const { unmount } = render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: /Noite/ }));
@@ -100,10 +101,10 @@ test('custom HTML-looking name renders as text', async () => {
 });
 
 test('URL works if storage and default fetch fail', async () => {
-  jest.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked'); });
-  jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked'); });
-  jest.spyOn(console, 'warn').mockImplementation(() => {});
-  global.fetch = jest.fn(() => Promise.reject(new Error('offline')));
+  vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked'); });
+  vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked'); });
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+  global.fetch = vi.fn(() => Promise.reject(new Error('offline')));
   open('?rotina=1%7Cn%7Cba%3A15');
   render(<App />);
   expect(await screen.findByRole('button', { name: 'Pular para Banho' })).toBeInTheDocument();
@@ -133,7 +134,7 @@ test.each(['2400', '1260', '0720/', 'bad'])('invalid pathname /%s safely preserv
 });
 
 test.each([false, true])('clean compound renders and survives editing on phone=%s with query precedence', async phone => {
-  window.matchMedia = jest.fn(() => ({ matches: phone, addEventListener: jest.fn(), removeEventListener: jest.fn() }));
+  window.matchMedia = vi.fn(() => ({ matches: phone, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
   open('0720?rotina=1.n.ma-de-5.1930');
   render(<App />);
   expect(await screen.findByRole('button', { name: 'Pular para Lavar as mãos + Escovar os dentes' })).toHaveTextContent('🧼🪥');
@@ -161,8 +162,8 @@ test('full editor preserves compound metadata and changed duration', async () =>
 });
 
 test.each(['/0720', '/1930', '/2400'])('bundled safe defaults survive fetch failure at %s', async pathname => {
-  jest.spyOn(console, 'warn').mockImplementation(() => {});
-  global.fetch = jest.fn(() => Promise.reject(new Error('offline')));
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+  global.fetch = vi.fn(() => Promise.reject(new Error('offline')));
   window.history.replaceState({}, '', pathname);
   localStorage.setItem('routines', 'keep these exact bytes');
   render(<App />);
@@ -177,7 +178,7 @@ test('required example saves exact URL, preserves storage/history and reload rep
   window.history.replaceState({ keep: true }, '', window.location.href);
   const view = render(<App />);
   await screen.findByRole('button', { name: 'Pular para Jantar' });
-  const replace = jest.spyOn(window.history, 'replaceState');
+  const replace = vi.spyOn(window.history, 'replaceState');
   const historyLength = window.history.length;
   edit();
   for (let i = 0; i < 2; i++) fireEvent.click(screen.getAllByRole('button', { name: 'Mover tarefa para cima' })[3 - i]);
@@ -302,10 +303,10 @@ test('cancelled editor does not replace URL or persist its draft', async () => {
 });
 
 test.each([false, true])('integrated URL + completion: marks follow task identity through edits and end-time save (phone: %s)', async phone => {
-  jest.useFakeTimers();
+  vi.useFakeTimers();
   const now = new Date();
   now.setHours(20, 0, 0, 0);
-  jest.setSystemTime(now);
+  vi.setSystemTime(now);
   window.matchMedia = () => ({ matches: phone, addEventListener() {}, removeEventListener() {} });
   localStorage.setItem('routines', JSON.stringify(defaults));
   open('?rotina=1.n.ba-20.ja-25.ma-de-5.2040');

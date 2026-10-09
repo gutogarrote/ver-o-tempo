@@ -1,6 +1,20 @@
 # Progresso — Rotina da Nina
 
-## Estado atual (fase 1, 2026-10-08)
+## Estado atual (fase 2, 2026-10-09)
+
+- Correção independente: desmarcar uma tarefa preserva as outras marcas explícitas e doneSeq;
+  elapsed automático continua distinto da marca manual. O corpo da tarefa ainda permite pular/reiniciar.
+- CRA/react-scripts substituído por Vite 8.3.4 e Vitest 5.0.3, mantendo React/Tailwind,
+  fontes, UI, horários, domínio, URLs, storage e build em `app/build/`.
+- 220 cenários originais preservados, mais 8 regressões: 228 em 8 suítes, sem skip/todo.
+- JSX em `.jsx`; mocks migrados para `vi`; setup mantém detecção de fake timers da Testing Library.
+- Node 22.23.3 e Python 3; CI usa npm ci, lint zero warnings, Vitest nonwatch e build.
+- ESLint explícito: 9.39.5 depreciado, mantido por compatibilidade com peers React/a11y.
+- Audit: 7 advisories (2 moderate, 5 high), transitivos do Tailwind 3 em tooling;
+  não foi usado audit fix --force, nem migrado Tailwind para 4 fora do escopo.
+- Nenhum deploy, backend, PWA ou rebranding adicional. Safari real não disponível.
+
+## Histórico: fase 1 (2026-10-08)
 
 - Interface aprovada em `components/fita/`: TV horizontal e celular vertical.
 - App carrega URL/storage/padrões; Home coordena edição e sessão em memória.
