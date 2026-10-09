@@ -2,6 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: Nunito;
+  font-style: normal;
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url('./assets/fonts/Nunito.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: Fredoka;
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url('./assets/fonts/Fredoka.woff2') format('woff2');
+}
+
 body {
   margin: 0;
   background: #FFF6E9;

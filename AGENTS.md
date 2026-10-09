@@ -12,7 +12,7 @@
   - `npm start`: Run dev server at `http://localhost:3000`.
   - `npm test`: Vitest in watch mode with React Testing Library.
   - `npm run lint -- --max-warnings=0`: Check production and all tests with zero warnings.
-- `npm test -- --run`: Run all 228 scenarios in 8 suites.
+- `npm test -- --run`: Run all original 228 scenarios plus the PWA scenarios.
 - `npm run build`: Production build to `app/build/`.
 - Install deps once: `cd app && npm ci`.
 
@@ -51,7 +51,7 @@
 - Use Node 22.23.3 (`.nvmrc` and app engines) and Python 3 on PATH for executable doc examples.
 - App loads URL/storage/defaults; Home controls the session; components/fita implements TV/phone UI.
 - lib contains schedule, routineView, trackLayout, timeline and routineUrl helpers.
-- Configuration persists in localStorage; session is in memory; no backend or registered service worker.
+- Configuration persists in localStorage; session is in memory; no backend. Production/preview registers a native PWA worker; dev does not. See docs/pwa.md.
 - Preserve all scenarios and assertions, with no skip/todo. DOM lint exceptions must be per-line,
   justified only for geometry/scroll measurement. Never disable rules globally.
 - CI runs npm ci, lint with zero warnings, nonwatch tests and production build.
@@ -85,6 +85,7 @@ npx wrangler rollback <version-id> --name ver-o-tempo --config ../wrangler.jsonc
 
 Os scripts usam explicitamente a configuração da raiz. O rollback é manual e não modifica DNS.
 `localStorage` é por origem: dados de localhost não migram automaticamente para workers.dev.
-Não foi adicionado recurso de migração/exportação, backend, storage remoto, telemetria, PWA
-ou service worker; a UI de produção permanece igual. Não versionar tokens, segredos,
+A fase 3 não adicionava PWA/service worker. A fase 4 adiciona instalação/offline e aviso
+de atualização conforme [docs/pwa.md](docs/pwa.md), sem redesenhar as telas.
+Não há migração/exportação, backend, storage remoto ou telemetria. Não versionar tokens, segredos,
 `.dev.vars`, `.wrangler/` ou o build.

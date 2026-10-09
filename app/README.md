@@ -1,7 +1,7 @@
-# App Rotina da Nina
+# App Ver o Tempo
 
-Veja o [README principal](../README.md), [guia técnico](../CLAUDE.md) e
-[contrato de URL](../docs/url-rotina.md).
+Veja o [README principal](../README.md), [guia técnico](../CLAUDE.md),
+[contrato de URL](../docs/url-rotina.md) e [guia PWA](../docs/pwa.md).
 
 Use Node 22.23.3 e Python 3 no PATH. Nesta pasta:
 
@@ -9,10 +9,13 @@ Use Node 22.23.3 e Python 3 no PATH. Nesta pasta:
 npm ci
 npm start
 npm run lint -- --max-warnings=0
-CI=true npm test -- --watchAll=false --runInBand
-CI=true npm run build
+npm test -- --run
+npm run build
+npm run preview
 ```
 
-CRA permanece nesta fase. Build gera `build/` (ignorado pelo Git); não há service worker
-registrado ou deploy configurado. Os ícones/manifest existentes são legados e permanecem
-para preservar a identidade visual; manifest sozinho não oferece offline.
+Vite gera `build/` (ignorado pelo Git). Somente produção/preview registra o worker
+gerado, para instalação/offline após a primeira visita. Fontes e ícones são locais.
+A atualização pede ação e fica bloqueada durante os editores; configurações salvas
+permanecem, sessão reinicia com reload. Não há backend, sync, alarmes ou deploy remoto
+realizado. Consulte o guia PWA para limites, validação de dados e rollback seguro.

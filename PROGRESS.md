@@ -1,6 +1,40 @@
 # Progresso — Rotina da Nina
 
-## Estado atual (fase 3, 2026-10-09)
+## Estado atual (fase 4, 2026-10-09)
+
+PWA Ver o Tempo com manifest raiz, ícones próprios 192/512 e maskable, Nunito e
+Fredoka locais licenciadas (SIL OFL 1.1). Worker nativo gerado pelo build, sem novas
+dependências: precache com integridade, shell canônico sem queries particulares e
+assets fingerprinted. Offline inclui atalhos, URLs custom e os dois editores.
+Dev não registra SW e identifica/aposenta um worker de preview na mesma origem.
+
+Atualização fica esperando ação, bloqueada durante edição. Somente a aba que aceita
+recarrega; outras abas preservam drafts e assets antigos. Marcador transitório no
+histórico protege cores/ícones/storage da reaplicação de URL no reload de atualização;
+sem nova persistência de marcas ou sessão. Ver [guia PWA](docs/pwa.md), incluindo
+limites de cache/origem e rollback para versões PWA ou aposentadoria do worker.
+
+Sem backend, login, sync, telemetria, novos alarmes ou redesign das telas. Os MP3
+continuam placeholders vazios e os alertas inativos. Nenhum deploy remoto, push, PR
+ou merge executado nesta fase. A fase 3 permanece baseline de branch, ainda sem merge.
+
+Verificação com Node 22.23.3: `npm ci`, lint sem warnings, 269 testes em 15 suítes
+(228 originais intactos), build e Wrangler deploy dry-run passaram. Chromium 148
+via Playwright validou TV/celular em preview e Wrangler local: instalação elegível,
+SW ativado/controlando, reload offline, atalhos/queries nunca visitadas, fontes e
+ambos os editores. Preview exercitou v1→v2 em duas abas com ativação offline,
+storage idêntico, drafts preservados, hashes JS/CSS novos, rejeição por integridade
+e rollback local v2→v1. Dev na mesma origem recebeu módulos Vite, desregistrou o
+worker anterior e abriu uma aba nova sem controller. Sem WebKit instalado ou teste
+em hardware Android/iOS. Evidências e resultado fora do repo em
+`/home/ubuntu/.hermes/cache/scratch/ver-o-tempo-fase4`.
+
+Audit: 7 achados herdados (2 moderate, 5 high) na cadeia Tailwind/tooling;
+`npm audit --omit=dev` retorna zero. Nenhuma dependência foi adicionada/atualizada.
+ESLint exclui somente o output gerado `.wrangler/`, mantendo todas as regras de
+produção/testes; os asserts originais e os timeouts não foram alterados.
+
+## Histórico: fase 3 (2026-10-09)
 
 A configuração `wrangler.jsonc` na raiz prepara o Worker `ver-o-tempo` na conta
 `339987eb42deac962dcd86bffd351107`, com Wrangler fixado em 4.149.0.

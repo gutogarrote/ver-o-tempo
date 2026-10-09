@@ -18,8 +18,9 @@ qualquer implementador; AGENTS.md contém as convenções de contribuição.
 Storage usa `routines`; sessão em memória não sobrevive ao reload. Queries válidas vencem
 storage e persistem; inválidas não gravam; atalhos usam padrões sem gravação inicial.
 A tela principal lê `monday`; outros dias do editor não implicam seleção automática.
-O encerramento dura até 180 minutos após o prazo. Não há backend, PWA/offline garantido,
-notificações ou sincronização. A configuração de implantação está descrita abaixo.
+O encerramento dura até 180 minutos após o prazo. Não há backend, notificações ou sincronização.
+A fase 4 usa worker nativo em produção/preview, fontes locais e atualização consentida,
+com bloqueio nos editores e preservação do storage no reload. Veja [docs/pwa.md](docs/pwa.md).
 
 ## Comandos
 
@@ -35,7 +36,7 @@ npm run build
 npm audit
 ```
 
-A suíte tem 228 cenários em 8 arquivos, sem skip/todo. Preserve seus asserts e contratos.
+A suíte preserva os 228 cenários em 8 arquivos e inclui novos testes PWA, sem skip/todo. Preserve seus asserts e contratos.
 Exceções de acesso DOM são por linha e justificadas para geometria em jsdom; não desligue
 regras globalmente. Vite/Vitest substituem CRA nesta fase; audit/deprecações transitivas são dívida de
 ferramentas, não resolvidas pela classificação devDependencies. Não use audit fix --force.
@@ -66,6 +67,7 @@ npx wrangler rollback <version-id> --name ver-o-tempo --config ../wrangler.jsonc
 
 Os scripts usam explicitamente a configuração da raiz. O rollback é manual e não modifica DNS.
 `localStorage` é por origem: dados de localhost não migram automaticamente para workers.dev.
-Não foi adicionado recurso de migração/exportação, backend, storage remoto, telemetria, PWA
-ou service worker; a UI de produção permanece igual. Não versionar tokens, segredos,
+A fase 3 não adicionava PWA/service worker. A fase 4 adiciona instalação/offline e aviso
+de atualização conforme [docs/pwa.md](docs/pwa.md), sem redesenhar as telas.
+Não há migração/exportação, backend, storage remoto ou telemetria. Não versionar tokens, segredos,
 `.dev.vars`, `.wrangler/` ou o build.
