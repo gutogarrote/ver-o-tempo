@@ -80,6 +80,36 @@ test('invalid link falls back to defaults without writing storage', async () => 
   expect(localStorage.getItem('routines')).toBeNull();
 });
 
+test.each(['?rotina=1.m.~%25FF-5', '?rotina=1.n.~%25FF-5', '?rotina=1.m.~%25ZZ-5', '?rotina=1.n.~%25ZZ-5'])('malformed %s preserves both periods and root restores them in the same context', async search => {
+  const custom = { monday: {
+    morning: { ...defaults.monday.morning, tasks: [{ id: 1, name: 'Manhã preservada', minutes: 8 }] },
+    evening: { ...defaults.monday.evening, tasks: [{ id: 1, name: 'Noite preservada', minutes: 9 }] },
+  } };
+  const original = JSON.stringify(custom);
+  localStorage.setItem('routines', original);
+  localStorage.setItem('unrelated', 'keep');
+  open(search);
+  const view = render(<App />);
+  expect(await screen.findByRole('button', { name: 'Pular para Café local' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Mostrar diagnóstico' }));
+  const diagnostic = JSON.parse(screen.getByRole('textbox', { name: 'Diagnóstico do link recebido' }).value);
+  expect(diagnostic.received.search).toBe(search);
+  expect(diagnostic.received.href).toBe(window.location.href);
+  expect(diagnostic.parser.stage).toMatch(/^custom-name/);
+  expect(localStorage.getItem('routines')).toBe(original);
+  expect(global.fetch).toHaveBeenCalledTimes(1);
+  view.unmount();
+  open('');
+  global.fetch.mockClear();
+  render(<App />);
+  expect(await screen.findByRole('button', { name: 'Pular para Manhã preservada' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: /Noite/ }));
+  expect(screen.getByRole('button', { name: 'Pular para Noite preservada' })).toBeInTheDocument();
+  expect(stored()).toEqual(custom);
+  expect(localStorage.getItem('unrelated')).toBe('keep');
+  expect(global.fetch).not.toHaveBeenCalled();
+});
+
 test('irrelevant query loads defaults then keeps local config', async () => {
   open('?utm=%FF');
   const view = render(<App />);

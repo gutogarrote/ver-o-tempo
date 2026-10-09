@@ -1,12 +1,21 @@
 import catalog from './taskCatalog.json';
 
-export const URL_ERROR = 'Não foi possível carregar a rotina do link. Confira o formato; a rotina padrão foi carregada e seus dados salvos foram preservados.';
+export const URL_ERROR = 'Não foi possível carregar a rotina do link. Mostramos a rotina padrão temporariamente, sem substituir suas rotinas salvas. Abra a página inicial sem o link para voltar aos seus dados.';
 const MAX_VALUE_LENGTH = 6000;
 const PERIODS = { m: 'morning', n: 'evening' };
 const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
 
-function parseEndTime(time) {
-  if (!/^\d{4}$/.test(time) || Number(time.slice(0, 2)) > 23 || Number(time.slice(2)) > 59) throw new Error(URL_ERROR);
+function fail(stage, reason, entry) {
+  throw Object.assign(new Error(URL_ERROR), { failure: { stage, reason, ...(entry === undefined ? {} : { entry }) } });
+}
+
+function strictDecode(value, stage, entry) {
+  try { return decodeURIComponent(value); }
+  catch (_) { fail(stage, 'malformed-percent-or-utf8', entry); }
+}
+
+function parseEndTime(time, stage = 'end-time') {
+  if (!/^\d{4}$/.test(time) || Number(time.slice(0, 2)) > 23 || Number(time.slice(2)) > 59) fail(stage, 'invalid-clock');
   return time.slice(0, 2) + ':' + time.slice(2);
 }
 
@@ -24,36 +33,41 @@ export function parseRoutineUrl(search, pathname = '/') {
     if (!values.length) {
       if (pathname === '/') return { status: 'absent' };
       const time = pathname.slice(1);
-      const endTime = parseEndTime(time);
+      const endTime = parseEndTime(time, 'pathname');
       return { status: 'valid', source: 'path', period: Number(time.slice(0, 2)) < 12 ? 'morning' : 'evening', endTime };
     }
-    if (values.length !== 1 || values[0].length > MAX_VALUE_LENGTH) throw new Error();
-    const value = decodeURIComponent(values[0].replace(/\+/g, ' '));
+    if (values.length !== 1) fail('query', 'duplicate-routine');
+    if (values[0].length > MAX_VALUE_LENGTH) fail('query', 'value-too-long');
+    const value = strictDecode(values[0].replace(/\+/g, ' '), 'outer-decode');
     const legacy = value.includes('|');
     const parts = value.split(legacy ? '|' : '.');
-    if ((legacy && parts.length !== 3) || parts[0] !== '1' || !hasOwn(PERIODS, parts[1])) throw new Error();
+    if (legacy && parts.length !== 3) fail('format', 'invalid-legacy-shape');
+    if (parts[0] !== '1') fail('format', 'unsupported-version');
+    if (!hasOwn(PERIODS, parts[1])) fail('format', 'invalid-period');
     let endTime;
     if (!legacy && /^\d{4}$/.test(parts[parts.length - 1])) endTime = parseEndTime(parts.pop());
     const entries = legacy ? parts[2].split(',') : parts.slice(2);
-    if (!entries.length) throw new Error();
-    if (entries.length > 40) throw new Error();
+    if (!entries.length) fail('entries', 'missing-tasks');
+    if (entries.length > 40) fail('entries', 'too-many-tasks');
     let total = 0;
     const tasks = entries.map((entry, index) => {
       const fields = entry.split(legacy ? ':' : '-');
       const duration = fields.pop();
       const identity = fields.join('-');
-      if (!fields.length || (legacy && fields.length !== 1) || !/^[1-9]\d{0,2}$/.test(duration)) throw new Error();
+      if (!fields.length || (legacy && fields.length !== 1)) fail('task', 'invalid-fields', index + 1);
+      if (!/^[1-9]\d{0,2}$/.test(duration)) fail('duration', 'invalid-minutes', index + 1);
       const minutes = Number(duration);
       total += minutes;
-      if (minutes > 180 || total > 720) throw new Error();
+      if (minutes > 180) fail('duration', 'task-too-long', index + 1);
+      if (total > 720) fail('duration', 'routine-too-long', index + 1);
       let definition;
       if (identity.startsWith('~')) {
-        if (!legacy && !/^~(?:[A-Za-z0-9_!~*'()]|%[0-9a-fA-F]{2})+$/.test(identity)) throw new Error();
-        const name = decodeURIComponent(identity.slice(1));
-        if (!name.trim() || name.length > 80 || Array.from(name).some(char => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)) throw new Error();
+        if (!legacy && !/^~(?:[A-Za-z0-9_!~*'()]|%[0-9a-fA-F]{2})+$/.test(identity)) fail('custom-name', 'invalid-encoded-name', index + 1);
+        const name = strictDecode(identity.slice(1), 'custom-name-decode', index + 1);
+        if (!name.trim() || name.length > 80 || Array.from(name).some(char => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)) fail('custom-name', 'invalid-name', index + 1);
         definition = { name, icon: '✨', color: '#CCCCCC' };
       } else {
-        if (fields.some(id => !hasOwn(catalog, id)) || fields.length > 40) throw new Error();
+        if (fields.some(id => !hasOwn(catalog, id)) || fields.length > 40) fail('catalog', 'invalid-ids', index + 1);
         definition = {
           name: fields.map(id => catalog[id].name).join(' + '),
           icon: fields.map(id => catalog[id].icon).join(''),
@@ -69,8 +83,8 @@ export function parseRoutineUrl(search, pathname = '/') {
       endTime: endTime || (period === 'morning' ? '06:30' : '21:00'),
       tasks,
     } };
-  } catch (_) {
-    return { status: 'invalid', error: URL_ERROR };
+  } catch (error) {
+    return { status: 'invalid', error: URL_ERROR, failure: error.failure || { stage: 'parser', reason: 'unexpected-input' } };
   }
 }
 

@@ -57,6 +57,29 @@ os delimitadores continuam literais. `%`, acentos, espaços e símbolos têm dua
 camadas quando necessário. Não decodifique novamente antes de gerar o link.
 IDs e delimitadores comuns não recebem `%2E`/`%2D`.
 
+## Diagnóstico local de link inválido
+
+Ao rejeitar um link, a tela mostra os padrões temporariamente, sem substituir as
+rotinas salvas. Abrir `/` sem a query recupera os dados locais no mesmo contexto.
+**Mostrar diagnóstico** revela `href`, `search` e `pathname` copiados de `Location`
+antes do parser, etapa/motivo da rejeição e número da tarefa quando disponível.
+São os valores expostos pelo navegador, não uma captura do link antes do handoff.
+O diagnóstico inclui o módulo carregado (hash do bundle em produção), URL/estado do
+service worker controlador e modo standalone, na carga e ao exibir o diagnóstico.
+Não consulta a rede para obter versões; `/sw.js` sozinho não identifica a versão
+do worker. **Copiar diagnóstico** tenta a API de clipboard, depois a cópia legada;
+se ambas falharem, deixa o texto visível selecionado para copiar manualmente.
+O conteúdo fica em memória, sem persistência ou telemetria. Contém o link e nomes
+de tarefas; compartilhe somente por decisão própria.
+
+A gramática e o número de decodificações continuam estritos. Remover uma camada
+da fixture da rotina Fantasia reproduz uma rejeição local, mas não comprova o que
+Telegram/Android entrega ao app instalado. Uma transformação pode ser ambígua:
+a query canônica de `Texto%20literal`, com uma camada removida, é idêntica à query
+canônica de `Texto literal`. Não há como recuperar a intenção a partir desses
+bytes. Compare o diagnóstico obtido no dispositivo com o caminho que funciona
+antes de atribuir causa ou mudar a interpretação de links válidos.
+
 ## Horário final, pathname e temporização
 
 Somente o ÚLTIMO token exatamente `^\d{4}$` é horário: HH 00..23, MM 00..59.

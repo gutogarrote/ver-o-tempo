@@ -3,10 +3,15 @@ import AudioAlerts from "./components/AudioAlerts";
 import Home from "./pages/Home";
 import defaultRoutines from './lib/defaultRoutines.json';
 import { applyRoutineUrl, parseRoutineUrl } from './lib/routineUrl';
+import { captureLinkContext } from './lib/linkDiagnostics';
+import InvalidLinkNotice from './components/InvalidLinkNotice';
 
 function App({ preserveUpdate = false }) {
   const [routines, setRoutines] = useState(null);
-  const [urlConfig] = useState(() => parseRoutineUrl(window.location.search, window.location.pathname));
+  const [urlConfig] = useState(() => {
+    const context = captureLinkContext();
+    return { ...parseRoutineUrl(context.search, context.pathname), context };
+  });
   const [currentTime, setCurrentTime] = useState(new Date());
 
   function normalizeMinutes(data) {
@@ -70,7 +75,7 @@ function App({ preserveUpdate = false }) {
 
   return (
     <div className="min-h-screen" style={{ background: "#FFF6E9" }}>
-      {urlConfig.status === 'invalid' && <div role="alert" className="p-4">{urlConfig.error}</div>}
+      {urlConfig.status === 'invalid' && <InvalidLinkNotice {...urlConfig} />}
       {routines ? (
         <Home initialRoutineId={urlConfig.period || 'morning'} routines={routines} setRoutines={setRoutines} currentTime={currentTime} />
       ) : (
