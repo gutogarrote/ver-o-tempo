@@ -1,4 +1,4 @@
-# Rotina ⏰ — o tempo que dá pra ver
+# Ver o Tempo ⏰ — o tempo que dá pra ver
 
 **Um app gratuito que mostra a rotina da manhã e da noite como uma fita colorida, para crianças que ainda não sabem ler as horas no relógio.**
 
