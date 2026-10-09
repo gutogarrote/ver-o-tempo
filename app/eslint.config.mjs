@@ -7,7 +7,8 @@ import testingLibrary from 'eslint-plugin-testing-library';
 import jestDom from 'eslint-plugin-jest-dom';
 
 export default [
-  { ignores: ['build/**', 'coverage/**', 'node_modules/**'] },
+  // Wrangler's local/dry-run output is generated, like the Vite build.
+  { ignores: ['build/**', 'coverage/**', 'node_modules/**', '.wrangler/**'] },
   {
     files: ['**/*.{js,jsx,mjs}'],
     languageOptions: {

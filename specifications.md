@@ -11,14 +11,20 @@
 - URL: contrato detalhado em [docs/url-rotina.md](docs/url-rotina.md); não alterar parser,
   precedência, atalhos ou conteúdo padrão como parte da manutenção da fase 2.
 - Configuração persistente por origem; sessão volátil; sem sincronização entre aparelhos.
-- Sons inativos, sem backend, service worker, offline garantido, notificações ou deploy.
+- Sons inativos, sem backend, notificações ou deploy remoto executado.
+- Fase 4: PWA instalável com ícones próprios, manifest raiz e fontes locais licenciadas;
+  offline após instalação completa do SW em produção/preview, inclusive atalhos, queries
+  e ambos os editores. Dev não registra worker. Atualização somente por ação explícita,
+  bloqueada durante edição; outras abas não recarregam e storage permanece intacto.
+  Sessão continua volátil. Cache só de assets públicos canônicos do build.
+  Instalação, limites, cache e rollback: [docs/pwa.md](docs/pwa.md).
 - Stack atual: Vite 8, React 19, Tailwind 3, Vitest 5/Testing Library e ESLint explícito.
   Node 22.23.3 e Python 3; checks documentados em README e AGENTS.
 
 ## Histórico — visão inicial, não requisitos implementados
 
-O texto abaixo foi preservado para contexto. Áudio, dias da semana e PWA mencionados
-nele são propostas históricas, não compromissos desta fase.
+O texto abaixo foi preservado para contexto da visão inicial; não substitui a
+especificação vigente acima nem implica novos compromissos nesta fase.
 
 # Project: Linear Day Timeline
 

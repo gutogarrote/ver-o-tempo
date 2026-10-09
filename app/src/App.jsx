@@ -4,7 +4,7 @@ import Home from "./pages/Home";
 import defaultRoutines from './lib/defaultRoutines.json';
 import { applyRoutineUrl, parseRoutineUrl } from './lib/routineUrl';
 
-function App() {
+function App({ preserveUpdate = false }) {
   const [routines, setRoutines] = useState(null);
   const [urlConfig] = useState(() => parseRoutineUrl(window.location.search, window.location.pathname));
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -29,12 +29,13 @@ function App() {
 
   useEffect(() => {
     let active = true;
-    function load(data) {
+    function load(data, preserveStored = false) {
       if (!active) return;
-      const next = applyRoutineUrl(normalizeMinutes(data), urlConfig);
+      const normalized = normalizeMinutes(data);
+      const next = preserveStored ? normalized : applyRoutineUrl(normalized, urlConfig);
       setRoutines(next);
       // An invalid link must not change existing storage, even during fallback.
-      if (urlConfig.status !== 'invalid' && urlConfig.source !== 'path') {
+      if (!preserveStored && urlConfig.status !== 'invalid' && urlConfig.source !== 'path') {
         try { localStorage.setItem('routines', JSON.stringify(next)); } catch (_) {}
       }
     }
@@ -44,7 +45,7 @@ function App() {
         if (stored) {
           const data = JSON.parse(stored);
           if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Invalid routines');
-          load(data);
+          load(data, preserveUpdate);
           return;
         }
       } catch (error) {
@@ -65,7 +66,7 @@ function App() {
       setCurrentTime(new Date());
     }, 1000);
     return () => { active = false; clearInterval(timer); };
-  }, [urlConfig]);
+  }, [urlConfig, preserveUpdate]);
 
   return (
     <div className="min-h-screen" style={{ background: "#FFF6E9" }}>

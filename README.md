@@ -201,7 +201,8 @@ A fase 2 usa Vite e Vitest, mantendo React 19, Tailwind 3, a interface e os cont
 Use Node **22.23.3** (`nvm use` na raiz) e Python 3 no PATH para os exemplos executáveis de URL.
 Em `app/`: `npm ci`, `npm run lint -- --max-warnings=0`,
 `npm test -- --run` e `npm run build`.
-O CI executa esses quatro checks; a suíte contém 228 cenários em 8 arquivos, sem skip/todo.
+O CI executa esses quatro checks; a suíte tem 269 cenários em 15 arquivos,
+incluindo os 228 originais preservados e novos testes PWA, sem skip/todo.
 `npm test` inicia Vitest em watch; `npm test -- --run` executa uma vez.
 `npm run build` gera `app/build/`; `npm run preview` serve esse build na porta 3000.
 O lint usa configuração explícita em `app/eslint.config.mjs`, incluindo os testes.
@@ -213,8 +214,10 @@ Configurações usam a chave `routines` de localStorage por navegador/origem; a 
 Links transportam somente o período selecionado, sem backup completo de cores/ícones.
 Uma query válida prevalece sobre storage; query inválida usa padrões sem gravar;
 `/0720` e `/1930` usam padrões sem carregar ou gravar configurações locais.
-Não há sincronização, backend, service worker ou garantia de abertura offline.
-Fontes externas e links compartilhados também devem ser considerados ao avaliar privacidade.
+Não há sincronização ou backend. A fase 4 adiciona instalação e offline após a primeira
+visita completa em produção, fontes locais e atualização consentida com proteção dos editores.
+Veja [instalação Android/iOS, offline, atualização e rollback](docs/pwa.md).
+Links compartilhados continuam transportando os nomes das tarefas na URL.
 
 ## Implantação: Cloudflare Workers Static Assets (fase 3)
 
@@ -241,6 +244,7 @@ npx wrangler rollback <version-id> --name ver-o-tempo --config ../wrangler.jsonc
 
 Os scripts usam explicitamente a configuração da raiz. O rollback é manual e não modifica DNS.
 `localStorage` é por origem: dados de localhost não migram automaticamente para workers.dev.
-Não foi adicionado recurso de migração/exportação, backend, storage remoto, telemetria, PWA
-ou service worker; a UI de produção permanece igual. Não versionar tokens, segredos,
+Na fase 3 não havia PWA/service worker; a fase 4 adiciona os recursos descritos no
+[guia PWA](docs/pwa.md), mantendo as telas e acrescentando apenas o aviso de atualização.
+Não há migração/exportação, backend, storage remoto ou telemetria. Não versionar tokens, segredos,
 `.dev.vars`, `.wrangler/` ou o build.

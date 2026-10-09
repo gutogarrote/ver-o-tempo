@@ -4,6 +4,7 @@ import RoutinePhone from '../components/fita/RoutinePhone';
 import ParentMenu from '../components/fita/ParentMenu';
 import DefaultRoutineEditor from '../components/DefaultRoutineEditor';
 import RoutineEditor from '../components/RoutineEditor';
+import PwaUpdateNotice from '../components/PwaUpdateNotice';
 import { OVERTIME_WINDOW_MIN, computeElapsed, hhmm, sumMinutes, toToday } from '../lib/timeline';
 import { serializeRoutineUrl } from '../lib/routineUrl';
 import { buildPlanView, closingFor } from '../lib/routineView';
@@ -79,6 +80,7 @@ export default function Home({ routines, setRoutines, currentTime, initialRoutin
   // Edit states
   const [isEditingDefaults, setIsEditingDefaults] = useState(false);
   const [isEditingCurrent, setIsEditingCurrent] = useState(false);
+  const updateNotice = <PwaUpdateNotice editing={isEditingDefaults || isEditingCurrent} />;
 
   function applyPlan(next) {
     if (next === plan) return;
@@ -179,6 +181,7 @@ export default function Home({ routines, setRoutines, currentTime, initialRoutin
 
   if (isEditingDefaults) {
     return (
+      <>{updateNotice}
       <div className="mx-auto max-w-6xl px-4 py-6">
         <DefaultRoutineEditor
           routines={routines}
@@ -186,11 +189,13 @@ export default function Home({ routines, setRoutines, currentTime, initialRoutin
           onCancel={() => setIsEditingDefaults(false)}
         />
       </div>
+      </>
     );
   }
 
   if (isEditingCurrent) {
     return (
+      <>{updateNotice}
       <div className="mx-auto max-w-6xl px-4 py-6">
         <div className="bg-white p-4 rounded-lg shadow-md">
           <RoutineEditor routine={routine} onSave={saveCurrent} />
@@ -204,6 +209,7 @@ export default function Home({ routines, setRoutines, currentTime, initialRoutin
           </div>
         </div>
       </div>
+      </>
     );
   }
 
@@ -234,6 +240,7 @@ export default function Home({ routines, setRoutines, currentTime, initialRoutin
   };
 
   return <>
+    {updateNotice}
     {saveError && <div role="alert" className="p-4">{saveError}</div>}
     {isPhone
       ? <RoutinePhone {...shared} />
