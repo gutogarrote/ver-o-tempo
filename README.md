@@ -215,3 +215,32 @@ Uma query válida prevalece sobre storage; query inválida usa padrões sem grav
 `/0720` e `/1930` usam padrões sem carregar ou gravar configurações locais.
 Não há sincronização, backend, service worker ou garantia de abertura offline.
 Fontes externas e links compartilhados também devem ser considerados ao avaliar privacidade.
+
+## Implantação: Cloudflare Workers Static Assets (fase 3)
+
+A configuração `wrangler.jsonc` na raiz prepara o Worker `ver-o-tempo` na conta
+`339987eb42deac962dcd86bffd351107`, com Wrangler fixado em 4.149.0.
+Usa somente assets de `./app/build` (caminho relativo à configuração), sem script Worker.
+`workers_dev=true` habilita workers.dev; não há routes, domínio personalizado nem alteração de DNS.
+O fallback `assets.not_found_handling="single-page-application"` entrega `index.html`
+com HTTP 200 para rotas não encontradas, incluindo `/0720`; queries de rotina continuam no cliente.
+Esta fase prepara a implantação; nenhum deploy remoto foi executado.
+
+Comandos a partir de `app/`, após `npm ci`:
+
+```bash
+npm run dev:assets
+# Build seguido de Wrangler local; encerre com Ctrl+C.
+npm run build
+npx wrangler deploy --dry-run --config ../wrangler.jsonc
+# Publicação posterior, somente quando autorizada e autenticada na Cloudflare:
+npm run deploy
+# Rollback manual para uma versão previamente publicada:
+npx wrangler rollback <version-id> --name ver-o-tempo --config ../wrangler.jsonc
+```
+
+Os scripts usam explicitamente a configuração da raiz. O rollback é manual e não modifica DNS.
+`localStorage` é por origem: dados de localhost não migram automaticamente para workers.dev.
+Não foi adicionado recurso de migração/exportação, backend, storage remoto, telemetria, PWA
+ou service worker; a UI de produção permanece igual. Não versionar tokens, segredos,
+`.dev.vars`, `.wrangler/` ou o build.
