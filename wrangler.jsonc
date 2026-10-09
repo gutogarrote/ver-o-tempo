@@ -1,0 +1,10 @@
+{
+  "name": "ver-o-tempo",
+  "account_id": "339987eb42deac962dcd86bffd351107",
+  "compatibility_date": "2026-10-09",
+  "workers_dev": true,
+  "assets": {
+    "directory": "./app/build",
+    "not_found_handling": "single-page-application"
+  }
+}

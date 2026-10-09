@@ -5,3 +5,8 @@ Thumbs.db
 # Claude Code configuration
 .claude/
 settings.local.json
+
+# Wrangler local cache and secrets
+.wrangler/
+.dev.vars
+.dev.vars.*

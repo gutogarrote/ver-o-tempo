@@ -1,6 +1,44 @@
 # Progresso — Rotina da Nina
 
-## Estado atual (fase 2, 2026-10-09)
+## Estado atual (fase 3, 2026-10-09)
+
+A configuração `wrangler.jsonc` na raiz prepara o Worker `ver-o-tempo` na conta
+`339987eb42deac962dcd86bffd351107`, com Wrangler fixado em 4.149.0.
+Usa somente assets de `./app/build` (caminho relativo à configuração), sem script Worker.
+`workers_dev=true` habilita workers.dev; não há routes, domínio personalizado nem alteração de DNS.
+O fallback `assets.not_found_handling="single-page-application"` entrega `index.html`
+com HTTP 200 para rotas não encontradas, incluindo `/0720`; queries de rotina continuam no cliente.
+Esta fase prepara a implantação; nenhum deploy remoto foi executado.
+
+Comandos a partir de `app/`, após `npm ci`:
+
+```bash
+npm run dev:assets
+# Build seguido de Wrangler local; encerre com Ctrl+C.
+npm run build
+npx wrangler deploy --dry-run --config ../wrangler.jsonc
+# Publicação posterior, somente quando autorizada e autenticada na Cloudflare:
+npm run deploy
+# Rollback manual para uma versão previamente publicada:
+npx wrangler rollback <version-id> --name ver-o-tempo --config ../wrangler.jsonc
+```
+
+Os scripts usam explicitamente a configuração da raiz. O rollback é manual e não modifica DNS.
+`localStorage` é por origem: dados de localhost não migram automaticamente para workers.dev.
+Não foi adicionado recurso de migração/exportação, backend, storage remoto, telemetria, PWA
+ou service worker; a UI de produção permanece igual. Não versionar tokens, segredos,
+`.dev.vars`, `.wrangler/` ou o build.
+
+
+Verificação local da fase 3 com Node 22.23.3: `npm ci`, lint zero warnings,
+228 testes em 8 suítes, build e Wrangler deploy `--dry-run` passaram.
+Wrangler `dev --local` entregou HTTP 200 e o index do build em `/`, `/0720`
+e query customizada; smoke Chromium em TV/celular preservou os contratos da fase 2.
+A instalação ainda relata 7 vulnerabilidades (2 moderate, 5 high) e deprecação
+ESLint 9; a inclusão de Wrangler não atualizou versões de dependências existentes.
+Nenhum código em `app/src/` ou `app/public/` foi alterado; nenhum deploy remoto realizado.
+
+## Histórico: fase 2 (2026-10-09)
 
 - Correção independente: desmarcar uma tarefa preserva as outras marcas explícitas e doneSeq;
   elapsed automático continua distinto da marca manual. O corpo da tarefa ainda permite pular/reiniciar.
