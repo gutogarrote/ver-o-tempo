@@ -6,7 +6,8 @@ const AudioAlerts = ({ routine, currentTime }) => {
   const playSound = (soundFile) => {
     if (audioRef.current) {
       audioRef.current.src = soundFile;
-      audioRef.current.play();
+      // Browsers may reject playback until the user has interacted with the page.
+      audioRef.current.play().catch(() => {});
     }
   };
 
@@ -20,12 +21,12 @@ const AudioAlerts = ({ routine, currentTime }) => {
     let accumulatedDuration = 0;
     for (const task of routine.tasks) {
       const taskEndTime = new Date(routineEndTime.getTime() - accumulatedDuration * 60 * 1000);
-      const taskStartTime = new Date(taskEndTime.getTime() - task.duration * 60 * 1000);
+      const durationMin = task.minutes ?? 0;
 
       const fiveMinutesBeforeEnd = new Date(taskEndTime.getTime() - 5 * 60 * 1000);
       const oneMinuteBeforeEnd = new Date(taskEndTime.getTime() - 1 * 60 * 1000);
 
-      if (task.duration > 10) {
+      if (durationMin > 10) {
         if (currentTime.getTime() > fiveMinutesBeforeEnd.getTime() && currentTime.getTime() < fiveMinutesBeforeEnd.getTime() + 1000) {
           playSound('/sounds/5-minutes-remaining.mp3');
         }
@@ -39,7 +40,7 @@ const AudioAlerts = ({ routine, currentTime }) => {
         playSound('/sounds/task-complete.mp3');
       }
 
-      accumulatedDuration += task.duration;
+      accumulatedDuration += durationMin;
     }
   }, [routine, currentTime]);
 

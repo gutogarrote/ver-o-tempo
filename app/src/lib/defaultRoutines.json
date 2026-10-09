@@ -11,7 +11,7 @@
         { "id": 5, "name": "Trocar de roupa", "icon": "👕", "color": "#22c55e", "minutes": 10 },
         { "id": 6, "name": "Arrumar mochila", "icon": "🎒", "color": "#0ea5e9", "minutes": 5 },
         { "id": 7, "name": "Xixi tático", "icon": "🚽", "color": "#f472b6", "minutes": 5 },
-        { "id": 8, "name": "Tênis e sair", "icon": "👟", "color": "#ef4444", "minutes": 5 } 
+        { "id": 8, "name": "Tênis e sair", "icon": "👟", "color": "#ef4444", "minutes": 5 }
       ]
     },
     "evening": {

@@ -1,3 +1,22 @@
+# Progresso — Rotina da Nina
+
+## Estado atual (fase 1, 2026-10-08)
+
+- Interface aprovada em `components/fita/`: TV horizontal e celular vertical.
+- App carrega URL/storage/padrões; Home coordena edição e sessão em memória.
+- Agenda, apresentação, geometria e URL têm helpers e 220 cenários em 8 suítes.
+- Manutenção da fase 1: remoção confirmada de componentes mortos, limpeza do template,
+  lint completo, Node fixado, tooling em devDependencies e CI de instalação/lint/test/build.
+- Persistência já funciona em localStorage; sons não estão ativos (AudioAlerts recebe null).
+- Sem migração CRA/Vite, alteração visual, dados novos, backend, PWA ou deploy nesta fase.
+- Audit continua como dívida classificada de tooling; mover dependências não corrige advisories.
+
+## Histórico anterior — não é especificação do produto atual
+
+O registro abaixo descreve etapas e propostas antigas, inclusive componentes removidos,
+placeholder de salvamento e intenções de PWA. Não representa funcionalidades atuais nem
+um plano aprovado. Consulte README, specifications e CLAUDE para o estado vigente.
+
 # Project Log: Ver o Tempo
 
 This document tracks the development progress, decisions made, and next steps for the "Ver o Tempo" application.
@@ -106,3 +125,29 @@ This document tracks the development progress, decisions made, and next steps fo
 *   **Component Refactoring:** Break down larger components (like `App.js`) into smaller, more manageable pieces.
 *   **Add Tests:** Implement unit and integration tests to ensure the application is robust.
 *   **Error Handling:** Improve error handling, especially for file loading and `localStorage` operations.
+
+## URL de rotina limpa (2026-10-02)
+
+Parser e gerador usam pontos/hífens literais, IDs estáveis, tarefas combinadas
+com `catalogIds` preservados pelos dois editores e final opcional HHMM.
+Atalhos `/hhhh` usam padrão sem substituir storage; query tem prioridade.
+Links inválidos usam padrão seguro e erro amigável, sem apagar dados locais.
+O prefixo custom `~` é obrigatório; nomes têm escaping interno de delimitadores.
+Formato antigo simples permanece somente para leitura. Detalhes e exemplos
+executáveis em [docs/url-rotina.md](docs/url-rotina.md).
+
+Arquitetura atual: App carrega dados e aplica URL uma vez na montagem; Home
+seleciona período, controla prazo/modo e edição; `timeline.js` calcula tempo e
+`routineView.js` fornece o modelo compartilhado por RoutinePhone/RoutineTV.
+Não houve mudança no cálculo de tempo ou na janela de atraso de 180 minutos.
+
+## Salvar edição no link (2026-10-02)
+
+Home usa `serializeRoutineUrl` e `history.replaceState` nos dois editores e em
+Salvar horário do menu. URL importada uma vez por App; atalhos de horário viram
+query completa em `/`. Outros parâmetros, fragmento e estado do histórico são
+preservados. Salvar uma rotina mantém os outros períodos e dias do storage.
+Combinações intactas mantêm IDs; nomes editados recebem escaping customizado.
+Formato não representável gera aviso e mantém persistência local existente.
+Cálculo de tempo e marca-feito não foram modificados. Instruções para copiar
+o novo link após salvar em [docs/url-rotina.md](docs/url-rotina.md).

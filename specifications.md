@@ -1,3 +1,24 @@
+# Especificação vigente — Rotina da Nina
+
+- Duas rotinas visíveis: manhã e noite, da estrutura `monday`; o editor completo
+  pode armazenar outros dias/períodos, mas a tela principal não alterna por dia da semana.
+- Tarefas com nome, emoji, cor e minutos; compatibilidade de leitura com `duration`.
+- Prazo determina o início; concluir, saltar, acrescentar cinco minutos e reiniciar
+  ajustam a sessão. Após o prazo há janela de encerramento de 180 minutos.
+- TV usa fita horizontal; celular usa lista vertical com acompanhamento e rolagem manual.
+- Editores salvam configuração em localStorage e atualizam o link sem reload.
+- URL: contrato detalhado em [docs/url-rotina.md](docs/url-rotina.md); não alterar parser,
+  precedência, atalhos ou conteúdo padrão como parte da manutenção da fase 1.
+- Configuração persistente por origem; sessão volátil; sem sincronização entre aparelhos.
+- Sons inativos, sem backend, service worker, offline garantido, notificações ou deploy.
+- Stack preservada: CRA 5, React 19, Tailwind 3, Jest/Testing Library e ESLint do CRA.
+  Node 22.23.3 e Python 3; checks documentados em README e AGENTS.
+
+## Histórico — visão inicial, não requisitos implementados
+
+O texto abaixo foi preservado para contexto. Áudio, dias da semana e PWA mencionados
+nele são propostas históricas, não compromissos desta fase.
+
 # Project: Linear Day Timeline
 
 ## 1. Vision
