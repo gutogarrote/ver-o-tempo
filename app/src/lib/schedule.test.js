@@ -440,3 +440,43 @@ describe('doneSeq: order in which the tasks were marked done', () => {
     expect(jumpTo(p, tasks, 0, now).doneSeq).toEqual([0, 0, 0, 0, 0]);
   });
 });
+
+
+describe('undo preserves independent manual marks', () => {
+  test.each([[0, 1, 2], [2, 1, 0]])('first and intermediate, order %s', (...order) => {
+    const now = at(19, 35);
+    let p = order.reduce((p, i) => toggleTaskDone(p, tasks, i, now), fresh());
+    const seq = p.doneSeq.slice();
+    p = toggleTaskDone(p, tasks, 0, now);
+    expect(p.done).toEqual([false, true, true, false]);
+    expect(p.doneSeq).toEqual([0, seq[1], seq[2], 0]);
+    expect(currentIndex(p, now)).toBe(0);
+    expect(p.endMs).toBe(D);
+    expect(p.segs[3].end).toBe(D);
+    p = toggleTaskDone(p, tasks, 1, now);
+    expect(p.done).toEqual([false, false, true, false]);
+    expect(p.doneSeq).toEqual([0, 0, seq[2], 0]);
+    expect(contiguousFrom(p, 0)).toBe(true);
+  });
+
+  test('redo of an automatically elapsed task preserves a future manual mark', () => {
+    const now = at(19, 55);
+    const p = completeTask(fresh(), tasks, 2, now);
+    expect(p.done[0]).toBe(false); // elapsed, never manually marked
+    const u = toggleTaskDone(p, tasks, 0, now);
+    expect(u.done).toEqual([false, false, true, false]);
+    expect(u.doneSeq[2]).toBe(p.doneSeq[2]);
+    expect(currentIndex(u, now)).toBe(0);
+  });
+
+  test('all marked, overtime and start mode preserve the other explicit marks', () => {
+    for (const keepDeadline of [true, false]) {
+      let p = [2, 1, 0, 3].reduce((p, i) => toggleTaskDone(p, tasks, i, at(19, 35)), fresh());
+      const seq = p.doneSeq.slice();
+      p = toggleTaskDone(p, tasks, 0, at(20, 35), { keepDeadline });
+      expect(p.done).toEqual([false, true, true, true]);
+      expect(p.doneSeq).toEqual([0, seq[1], seq[2], seq[3]]);
+      expect(currentIndex(p, at(20, 35))).toBe(0);
+    }
+  });
+});

@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import Home from './Home';
@@ -37,7 +38,7 @@ function setPhone(isPhone) {
 
 function renderEvening(now, { phone = false } = {}) {
   setPhone(phone);
-  const setRoutines = jest.fn();
+  const setRoutines = vi.fn();
   const utils = render(<Home routines={routines} setRoutines={setRoutines} currentTime={now} />);
   // Morning is the default; switch to evening.
   fireEvent.click(phone ? screen.getByLabelText('Noite') : screen.getByRole('button', { name: /Noite/ }));
@@ -100,7 +101,7 @@ test('clicking a task body starts it now and keeps a near deadline', () => {
 
 test('morning shows "Hora de sair" with its own +5 button', () => {
   setPhone(false);
-  render(<Home routines={routines} setRoutines={jest.fn()} currentTime={today(6, 40)} />);
+  render(<Home routines={routines} setRoutines={vi.fn()} currentTime={today(6, 40)} />);
   expect(screen.getByRole('button', { name: 'Mais 5 minutos até Hora de sair' })).toBeInTheDocument();
   expect(dot('Café')).toBeInTheDocument();
 });
@@ -222,5 +223,26 @@ describe('done marks survive deadline changes and saves', () => {
     fireEvent.click(screen.getByRole('button', { name: /Salvar/ }));
     expect(screen.getByText('TERMINA 20:50')).toBeInTheDocument();
     expect(dot('Banho')).toHaveAttribute('aria-pressed', 'true');
+  });
+});
+
+
+describe.each([false, true])('independent manual marks (phone=%s)', (phone) => {
+  test.each([[0, 1, 2], [2, 1, 0]])('undo first/intermediate after order %s', (...order) => {
+    setPhone(phone);
+    const names = ['Café da manhã', 'Mochila', 'Dentes', 'Sapatos'];
+    const morning = { monday: { morning: { name: 'Manhã', endTime: '07:20',
+      tasks: names.map((name, i) => ({ id: i, name, minutes: 10, icon: '☀️', color: '#f97316' })),
+    } } };
+    render(<Home routines={morning} setRoutines={vi.fn()} currentTime={today(6, 40)} />);
+    order.forEach((i) => fireEvent.click(dot(names[i])));
+    fireEvent.click(dot(names[0]));
+    expect(dot(names[0])).toHaveAttribute('aria-pressed', 'false');
+    expect(dot(names[1])).toHaveAttribute('aria-pressed', 'true');
+    expect(dot(names[2])).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(dot(names[1]));
+    expect(dot(names[1])).toHaveAttribute('aria-pressed', 'false');
+    expect(dot(names[2])).toHaveAttribute('aria-pressed', 'true');
+    expect(dot(names[3])).toHaveAttribute('aria-pressed', 'false');
   });
 });

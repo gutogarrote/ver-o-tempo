@@ -256,11 +256,16 @@ export function restartPlan(tasks, endMs, nowMs, marked) {
 
 // The completion dot: marks a pending task done; on a done task it undoes the mark.
 // Undoing a marked future task returns it to the queue (see unmarkFuture); undoing a task
-// that is already behind us means "redo it": same as jumping to it.
+// that is already behind us means "redo it", preserving other explicit marks.
 export function toggleTaskDone(plan, tasks, i, nowMs, opts) {
   if (i < 0 || i >= plan.segs.length) return plan;
   if (!isTaskDone(plan, i, nowMs)) return completeTask(plan, tasks, i, nowMs);
   const c = isOvertime(plan, nowMs) ? -1 : currentIndex(plan, nowMs);
   if (plan.done[i] && c >= 0 && i > c) return unmarkFuture(plan, tasks, i, c, nowMs);
-  return jumpTo(plan, tasks, i, nowMs, opts);
+  const restarted = jumpTo(plan, tasks, i, nowMs, opts);
+  const done = plan.done.map((d, j) => j !== i && d);
+  const doneSeq = plan.done.map((_, j) => j !== i ? markSeq(plan, j) : 0);
+  // A dot undoes only this task; jumping via the task body intentionally resets the tail.
+  // Reuse the restart/deadline rules, but allocate time only to tasks still pending.
+  return replan({ ...restarted, done, doneSeq }, originalMs(tasks), i, nowMs);
 }

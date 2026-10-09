@@ -107,7 +107,7 @@ npm ci
 npm start
 ```
 
-O app abre em **http://localhost:3000**. Para usar na TV ou no celular (na mesma rede Wi-Fi), use o endereço **On Your Network** que o `npm start` mostra, por exemplo `http://192.168.0.15:3000`.
+O app abre em **http://localhost:3000**. Para usar na TV ou no celular (na mesma rede Wi-Fi), use o endereço **Network** que o `npm start` mostra, por exemplo `http://192.168.0.15:3000`.
 
 ### OU ENTÃO
 
@@ -143,7 +143,7 @@ Quando terminar, digite:
 npm start
 ```
 
-O navegador vai abrir sozinho com o app. 🎉 (Se não abrir, entre em **http://localhost:3000**.)
+Abra **http://localhost:3000** no navegador.
 
 > Se o Windows perguntar se o Node.js pode usar a rede, clique em **Permitir**. Isso é o que deixa a TV e o celular abrirem o app.
 
@@ -151,11 +151,11 @@ O navegador vai abrir sozinho com o app. 🎉 (Se não abrir, entre em **http://
 Depois do `npm start`, o terminal mostra algo assim:
 
 ```
-  Local:            http://localhost:3000
-  On Your Network:  http://192.168.0.15:3000
+  Local:   http://localhost:3000
+  Network: http://192.168.0.15:3000
 ```
 
-Com o aparelho **na mesma rede Wi-Fi** do computador, abra o navegador dele e digite o endereço da linha **On Your Network** (o número será diferente na sua casa). Numa smart TV, use o navegador da própria TV.
+Com o aparelho **na mesma rede Wi-Fi** do computador, abra o navegador dele e digite o endereço da linha **Network** (o número será diferente na sua casa). Numa smart TV, use o navegador da própria TV.
 
 #### Das próximas vezes
 Basta abrir o terminal na pasta `app` (passo 3) e digitar `npm start`. O computador precisa ficar ligado, com a janela do terminal aberta, enquanto vocês usam o app. Para desligar, feche a janela do terminal (ou aperte **Ctrl + C** nela).
@@ -192,17 +192,21 @@ Este projeto nasceu do [ver-o-tempo](https://github.com/gutogarrote/ver-o-tempo)
 - After the deadline, it keeps the closing zone for up to three hours before rolling to the next occurrence. It calmly shows where you should be by now ("time to leave" / "time to sleep") until you tap **Recomeçar** (restart).
 - It adapts to the screen: a horizontal ribbon on a TV, a vertical scrolling list on a phone.
 - Parents can edit tasks, emojis, colors, durations and the deadline behind the ✨ button.
-- **Install:** get [Node.js](https://nodejs.org/) (22.23.3 LTS, pinned in `.nvmrc`), download this repo as a ZIP, open a terminal in the `app` folder and run `npm ci`, then `npm start`. To use it on a TV or phone on the same Wi-Fi, open the "On Your Network" address that `npm start` prints.
+- **Install:** get [Node.js](https://nodejs.org/) (22.23.3 LTS, pinned in `.nvmrc`), download this repo as a ZIP, open a terminal in the `app` folder and run `npm ci`, then `npm start`. To use it on a TV or phone on the same Wi-Fi, open the "Network" address that `npm start` prints.
 - **Not yet available:** sound alerts, different routines per weekday, and syncing between devices. Settings stay in each device's browser, with no accounts, login or routines backend. Fonts load from Google Fonts; shared URLs can expose the names and schedules they contain.
 
 ## Manutenção e verificações
 
-A fase 1 mantém Create React App, React e Tailwind, sem mudança de interface ou contratos.
+A fase 2 usa Vite e Vitest, mantendo React 19, Tailwind 3, a interface e os contratos.
 Use Node **22.23.3** (`nvm use` na raiz) e Python 3 no PATH para os exemplos executáveis de URL.
 Em `app/`: `npm ci`, `npm run lint -- --max-warnings=0`,
-`CI=true npm test -- --watchAll=false --runInBand` e `CI=true npm run build`.
-O CI executa esses quatro checks; a suíte contém 220 cenários em 8 arquivos, sem skip/todo.
-`npm audit` é uma triagem separada: a dívida transitiva do CRA continua e não se promete audit zero.
+`npm test -- --run` e `npm run build`.
+O CI executa esses quatro checks; a suíte contém 228 cenários em 8 arquivos, sem skip/todo.
+`npm test` inicia Vitest em watch; `npm test -- --run` executa uma vez.
+`npm run build` gera `app/build/`; `npm run preview` serve esse build na porta 3000.
+O lint usa configuração explícita em `app/eslint.config.mjs`, incluindo os testes.
+`npm audit` é uma triagem separada do build. ESLint 9.39.5 está depreciado, mas
+é a linha compatível declarada pelos plugins React/JSX a11y atuais; revisar quando suportarem ESLint 10.
 
 Configurações usam a chave `routines` de localStorage por navegador/origem; a sessão
 (conclusões, saltos e ajustes) fica em memória e é recalculada ao recarregar.
