@@ -94,6 +94,8 @@ Tudo o que você mexe é um **rascunho**: a fita mostra a prévia na hora, mas n
 
 **Exemplo — ajustar a duração.** O jantar está levando mais tempo: toque em **+1** na linha do "Jantar" três vezes (20 → 23 min). O número no meio mostra a duração e também pode ser digitado. **−1** para em 1 minuto (o botão fica desativado). Os horários de início das tarefas ("20:10", "20:37"…) são recalculados na prévia.
 
+**Regra da duração:** toda tarefa tem um número **inteiro de 1 a 180 minutos**. Se você digitar algo fora disso (0, um número negativo, campo vazio, 2,5 ou 181), o campo fica vermelho, aparece o aviso "Duração inválida em … Use um número inteiro de 1 a 180 minutos" e **Salvar fica desativado** até corrigir — nada é gravado. Corrija digitando um valor válido ou tocando em −1/+1 (que partem do último valor válido), ou toque em **Cancelar**. A mesma regra vale na caixa de nova tarefa/⋯ (**Adicionar tarefa** e **Aplicar** ficam desativados) e no editor completo **⚙️ Rotinas** (**Salvar Alterações** fica desativado).
+
 **Exemplo — inserir uma tarefa entre duas.** Entre cada par de tarefas (e no começo e no fim) há um **+**. Toque no **+** entre "Escovar os dentes" e "Xixi tático": abre uma caixa "Nova tarefa — Entre Escovar os dentes e Xixi tático". Escolha uma sugestão (por exemplo **📚 Ler livro**) ou digite um nome, ajuste ícone, cor e minutos e toque em **Adicionar tarefa**. Ela entra exatamente ali. No **⋯** de cada linha dá para trocar ícone e cor ou remover a tarefa.
 
 <p>
@@ -231,7 +233,7 @@ Este projeto nasceu do [ver-o-tempo](https://github.com/gutogarrote/ver-o-tempo)
 - A big card shows the current task and a countdown. It turns red in the last 2 minutes and lists what's coming next.
 - After the deadline, it keeps the closing zone for up to three hours before rolling to the next occurrence. It calmly shows where you should be by now ("time to leave" / "time to sleep") until you tap **Recomeçar** (restart).
 - It adapts to the screen: a horizontal ribbon on a TV, a vertical scrolling list on a phone.
-- Parents tap **✏️** to edit the routine on the main screen: ▲/▼ reorder, −1/+1 minute (minimum 1), **+** between tasks inserts one there, and −5/+5 move the routine's end time. It is a draft until **Salvar** (save); **Cancelar** discards it. Done marks stay with their tasks. The full editor and the deadline live behind the **☰** menu.
+- Parents tap **✏️** to edit the routine on the main screen: ▲/▼ reorder, −1/+1 minute (every duration must be a whole number from 1 to 180; saving is disabled otherwise), **+** between tasks inserts one there, and −5/+5 move the routine's end time. It is a draft until **Salvar** (save); **Cancelar** discards it. Done marks stay with their tasks. The full editor and the deadline live behind the **☰** menu.
 - The end time is shown on the final milestone (phone) and above **+5 min** (TV); the normal **+5 min** still adds time for this run only.
 - **Install:** get [Node.js](https://nodejs.org/) (22.23.3 LTS, pinned in `.nvmrc`), download this repo as a ZIP, open a terminal in the `app` folder and run `npm ci`, then `npm start`. To use it on a TV or phone on the same Wi-Fi, open the "Network" address that `npm start` prints.
 - **Not yet available:** sound alerts, different routines per weekday, and syncing between devices. Settings stay in each device's browser, with no accounts, login or routines backend. Fonts load from Google Fonts; shared URLs can expose the names and schedules they contain.
@@ -242,7 +244,7 @@ A fase 2 usa Vite e Vitest, mantendo React 19, Tailwind 3, a interface e os cont
 Use Node **22.23.3** (`nvm use` na raiz) e Python 3 no PATH para os exemplos executáveis de URL.
 Em `app/`: `npm ci`, `npm run lint -- --max-warnings=0`,
 `npm test -- --run` e `npm run build`.
-O CI executa esses quatro checks; a suíte tem 408 cenários em 21 arquivos,
+O CI executa esses quatro checks; a suíte tem 436 cenários em 21 arquivos,
 incluindo os 228 originais preservados, os testes PWA e os do modo de edição, sem skip/todo.
 `npm test` inicia Vitest em watch; `npm test -- --run` executa uma vez.
 `npm run build` gera `app/build/`; `npm run preview` serve esse build na porta 3000.
