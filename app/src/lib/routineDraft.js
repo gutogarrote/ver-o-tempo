@@ -6,8 +6,9 @@
 //    so done marks are never lost or moved to another task by an edit;
 //  - task: the routine task exactly as it will be saved;
 //  - left: minutes of it still to do when editing started (0 once done or behind the NOW
-//    line, what was left of the task in progress, all of it for the following ones). Only
-//    used to warn about an end time that leaves too little time (deadlineStatus).
+//    line, what was left of the task in progress, all of it for the following ones), and
+//    running: it was the task in progress (its `left` keeps running down while editing).
+//    Only used to warn about an end time that leaves too little time (deadlineStatus).
 // Nothing here touches storage or the session: Home saves the draft, or drops it on Cancel.
 import { MIN_MS, isTaskDone, markSeq } from './schedule';
 
@@ -30,10 +31,10 @@ export function startDraft(routineId, tasks, plan, endTime, nowMs) {
     const used = seg && nowMs > seg.start ? (nowMs - seg.start) / MIN_MS : 0;
     return {
       key: `t${i}`, mark: plan?.done?.[i] ? markSeq(plan, i) : undefined, task: { ...rest, minutes: minutesOf(task) },
-      left: past ? 0 : Math.max(0, minutesOf(task) - used),
+      left: past ? 0 : Math.max(0, minutesOf(task) - used), running: !past && !!seg && nowMs >= seg.start,
     };
   });
-  return { routineId, endTime, items, nextKey: items.length };
+  return { routineId, endTime, items, nextKey: items.length, startedAt: nowMs };
 }
 
 export const draftTasks = (draft) => draft.items.map((it) => it.task);
@@ -114,7 +115,9 @@ export function isDirty(draft, tasks, endTime) {
 //    count nothing) needs more minutes than there are until the end;
 //  - ok otherwise. `needed`/`available` are whole minutes.
 export function deadlineStatus(draft, endMs, nowMs) {
-  const needed = Math.ceil(draft.items.reduce((s, it) => s + (it.mark !== undefined ? 0 : it.left ?? Math.max(0, minutesOf(it.task))), 0) - 1e-9);
+  const since = Math.max(0, (nowMs - (draft.startedAt ?? nowMs)) / MIN_MS);
+  const leftOf = (it) => (it.left === undefined ? Math.max(0, minutesOf(it.task)) : Math.max(0, it.left - (it.running ? since : 0)));
+  const needed = Math.ceil(draft.items.reduce((s, it) => s + (it.mark !== undefined ? 0 : leftOf(it)), 0) - 1e-9);
   const available = Math.floor((endMs - nowMs) / MIN_MS);
   if (endMs <= nowMs) return { kind: 'overdue', needed, available: 0 };
   return { kind: needed > available ? 'tight' : 'ok', needed, available };
