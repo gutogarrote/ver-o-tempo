@@ -48,14 +48,14 @@ export function parseRoutineUrl(search, pathname = '/') {
       if (minutes > 180 || total > 720) throw new Error();
       let definition;
       if (identity.startsWith('~')) {
-        // Accept decoded UTF-8 and emojis, while retaining strict percent-escape validation.
+        // Accept decoded UTF-8 and emojis; encoded separators remain unambiguous.
         const raw = identity.slice(1);
+        if (!legacy && raw.includes('-')) throw new Error();
         if (/%(?![0-9a-fA-F]{2})/.test(raw)) throw new Error();
         let name;
         try {
           name = decodeURIComponent(raw);
         } catch (_) {
-          // Valid percent syntax that is not valid UTF-8 is malformed encoded input.
           if (/%[0-9a-fA-F]{2}/.test(raw)) throw new Error();
           name = raw;
         }
