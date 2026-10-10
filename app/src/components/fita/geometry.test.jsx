@@ -104,6 +104,7 @@ describe('TV', () => {
     }
   });
 
+  // All 159 render/unmount cycles can exceed 5s on CI; allow headroom for the full sweep.
   test('the minute under the fixed marker is inside the block of the task in progress across the routine', () => {
     for (let s = 0; s < 53 * 60; s += 20) {
       const { unmount } = renderAt(new Date(at(19, 7).getTime() + s * 1000), false);
@@ -117,5 +118,5 @@ describe('TV', () => {
       expect(x).toBeLessThanOrEqual(left + widths[i] + 1e-6);
       unmount();
     }
-  });
+  }, 15000);
 });

@@ -248,3 +248,7 @@ Na fase 3 não havia PWA/service worker; a fase 4 adiciona os recursos descritos
 [guia PWA](docs/pwa.md), mantendo as telas e acrescentando apenas o aviso de atualização.
 Não há migração/exportação, backend, storage remoto ou telemetria. Não versionar tokens, segredos,
 `.dev.vars`, `.wrangler/` ou o build.
+
+Proposta local issue 19: [URLs legíveis v2](docs/url-rotina-v2.md), com leitura v1
+preservada. Formato pendente de revisão/aprovação; teste Telegram Android físico
+ainda necessário antes de concluir a issue.

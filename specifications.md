@@ -8,6 +8,9 @@
 - Desmarcar qualquer tarefa preserva as outras marcas manuais; elapsed automático é calculado pelo horário.
 - TV usa fita horizontal; celular usa lista vertical com acompanhamento e rolagem manual.
 - Editores salvam configuração em localStorage e atualizam o link sem reload.
+- Proposta local issue 19: saves geram URLs legíveis v2, com leitura v1 preservada;
+  [gramática, restrições e limites de transporte](docs/url-rotina-v2.md).
+  Pendente de revisão Hermes/aprovação do formato e teste Android físico; sem publicação.
 - URL: contrato detalhado em [docs/url-rotina.md](docs/url-rotina.md); não alterar parser,
   precedência, atalhos ou conteúdo padrão como parte da manutenção da fase 2.
 - Configuração persistente por origem; sessão volátil; sem sincronização entre aparelhos.

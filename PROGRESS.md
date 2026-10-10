@@ -1,5 +1,17 @@
 # Progresso — Rotina da Nina
 
+## Proposta local issue 19 (2026-10-10)
+
+Formato legível v2 para salvar URLs: `_` representa espaço, hífen permanece no nome,
+`~HH` escapa pontuação ASCII, Unicode é encoded uma vez. IDs/durações/HHMM continuam
+editáveis. Underscore literal é rejeitado explicitamente; edição permanece local
+com aviso e URL anterior, conforme a política existente. Parser v1 e diagnóstico
+preservados, sem fallback que adivinhe nomes. Ver [contrato v2](docs/url-rotina-v2.md).
+Proposta pendente de revisão Hermes/aprovação do formato; sem push/PR/merge/deploy.
+Chromium de produção em TV/celular simulados verifica save/reload com storage vazio,
+ambos os editores, offline, query/hash/histórico e link inválido com storage intacto.
+Normalização de query é simulada com `new URL`; launch Telegram Android físico pendente.
+
 ## Estado atual (fase 4, 2026-10-09)
 
 PWA Ver o Tempo com manifest raiz, ícones próprios 192/512 e maskable, Nunito e
