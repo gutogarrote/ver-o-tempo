@@ -47,13 +47,13 @@ Se o horário acabar e ainda faltar alguma coisa, o app **mantém o encerramento
 ![Depois do horário: a zona de "Hora de sair" acesa](docs/screenshots/tv-passou-da-hora.png)
 
 ### O horário final sempre à vista
-O fim da rotina mostra **a que horas ela termina**: no celular, no marco final ("Hora de dormir · ÀS 21:00", fixo no rodapé e no fim da fita); na TV e no computador, em destaque (**FIM 06:30**) logo acima do botão **+5 min**. Ao tocar em **+5 min**, ou ao mudar o horário no modo de edição, o número muda na hora.
+O fim da rotina mostra **a que horas ela termina**: no celular, no marco final fixo no rodapé ("Hora de dormir · ÀS 21:00"), junto do **+5 min** e do **✏️** (quando a rotina acaba ou passa da hora, ele acende e diz "estamos aqui"); na TV e no computador, em destaque (**FIM 06:30**) logo acima do botão **+5 min**. Ao tocar em **+5 min**, ou ao mudar o horário no modo de edição, o número muda na hora.
 
 ### Na TV ou no celular
 O app se ajusta sozinho à tela:
 
 - **TV, computador ou tablet deitado:** a fita fica na horizontal, com letras grandes para ler do outro lado da cozinha.
-- **Celular ou tablet em pé:** a fita fica na vertical e rola sozinha para acompanhar a tarefa de agora. Você pode rolar com o dedo para ver as outras tarefas; depois de alguns segundos ela volta a acompanhar.
+- **Celular ou tablet em pé:** a fita fica na vertical e rola sozinha para acompanhar a tarefa de agora. Você pode rolar com o dedo para ver as outras tarefas; depois de alguns segundos ela volta a acompanhar. Só a lista de tarefas rola: o cabeçalho (☰, manhã/noite, relógio), o cartão AGORA e o rodapé com o horário final, **+5 min** e **✏️** ficam sempre dentro da tela, mesmo com avisos abertos.
 
 <p>
   <img src="docs/screenshots/celular-manha.png" alt="Rotina da manhã no celular" width="260">
@@ -118,6 +118,9 @@ Os ajustes completos ficam atrás do botão amarelo **☰** (na TV e no computad
 
 - **✏️ Editar esta rotina:** abre o mesmo modo de edição do botão ✏️ (veja acima).
 - **⚙️ Rotinas:** o editor completo, com todas as rotinas e o horário em que cada uma deve terminar. Também tem **Cancelar** e **Salvar Alterações**, e as setas da primeira e da última tarefa ficam desativadas.
+  - **Excluir Rotina** (manhã ou noite): depois de confirmar, descarta a rotina personalizada daquele período e volta à **rotina padrão original do aplicativo** (por exemplo, a noite volta às 7 tarefas com fim às 21:00). A outra rotina não muda. Como o resto do editor, só vale depois de **Salvar Alterações**; **Cancelar** desfaz. Se era a rotina na tela, a rodada atual recomeça (as marcas ✓ eram da rotina excluída). Isso não é um "padrão pessoal": o app não guarda outra versão sua para voltar.
+  - Uma rotina sem nenhuma tarefa não pode ser salva (aqui ou no modo de edição).
+- **Dados antigos:** se o aparelho tiver dados de uma versão anterior em que a rotina da manhã ou da noite foi excluída (ou ficou sem tarefas), o app mostra a rotina padrão original daquele período com um aviso, sem apagar nem alterar nada. Toque em **✏️** e **Salvar** para guardá-la; a outra rotina continua como estava.
 - **Horário limite:** a hora em que a rotina precisa acabar (por exemplo, a hora de sair para a escola). O app calcula de trás para frente quando cada tarefa deve começar.
 
 As mudanças ficam guardadas **no próprio aparelho**, no navegador. Ao salvar (no modo de edição ou no editor completo), o link da barra é atualizado sem recarregar: copie e guarde esse novo endereço para reabrir ou compartilhar tarefas, ordem, durações, nomes e horário final. No menu, use **Salvar horário** para incluir o prazo no link. As marcas ✓ não vão para o link: elas valem só para o momento.
@@ -238,7 +241,7 @@ Este é o repositório do [ver-o-tempo](https://github.com/gutogarrote/ver-o-tem
 - A big card shows the current task and a countdown. It turns red in the last 2 minutes and lists what's coming next.
 - After the deadline, it keeps the closing zone for up to three hours before rolling to the next occurrence. It calmly shows where you should be by now ("time to leave" / "time to sleep") until you tap **Recomeçar** (restart).
 - It adapts to the screen: a horizontal ribbon on a TV, a vertical scrolling list on a phone.
-- Parents tap **✏️** to edit the routine on the main screen: ▲/▼ reorder, −1/+1 minute (every duration must be a whole number from 1 to 180; saving is disabled otherwise), **+** between tasks inserts one there, and −5/+5 move the routine's end time. It is a draft until **Salvar** (save); **Cancelar** discards it. Done marks stay with their tasks. The full editor and the deadline live behind the **☰** menu.
+- Parents tap **✏️** to edit the routine on the main screen: ▲/▼ reorder, −1/+1 minute (every duration must be a whole number from 1 to 180; saving is disabled otherwise), **+** between tasks inserts one there, and −5/+5 move the routine's end time. It is a draft until **Salvar** (save); **Cancelar** discards it. Done marks stay with their tasks. The full editor and the deadline live behind the **☰** menu; there, **Excluir Rotina** (delete) on the morning or evening puts that period back to the app's original default after confirmation and **Salvar Alterações**, leaving the other period untouched. On phones only the task list scrolls: header, AGORA card and the footer (end time, +5, ✏️) stay on screen.
 - The end time is shown on the final milestone (phone) and above **+5 min** (TV); the normal **+5 min** still adds time for this run only.
 - **Two ways to run it.** (1) A published HTTPS build, when there is one: the project is prepared for Cloudflare Workers Static Assets, but this README lists no public address. A production HTTPS build needs no home computer, can be installed as an app (PWA) and works offline after one complete online visit plus a reload; the very first visit cannot be offline. See [docs/pwa.md](docs/pwa.md). (2) Locally: get [Node.js](https://nodejs.org/) (22.23.3 LTS, pinned in `.nvmrc`), then `git clone https://github.com/gutogarrote/ver-o-tempo.git`, `cd ver-o-tempo/app`, `npm ci`, `npm start` (or download the ZIP from GitHub). To use it on a TV or phone on the same Wi-Fi, open the "Network" address that `npm start` prints. The computer must stay on, and the dev server does not install the app or work offline.
 - Routines are stored per address (origin): data saved on `localhost` or the local network address does not move to a published address by itself; use a routine link to carry a routine.
@@ -250,7 +253,7 @@ A fase 2 usa Vite e Vitest, mantendo React 19, Tailwind 3, a interface e os cont
 Use Node **22.23.3** (`nvm use` na raiz) e Python 3 no PATH para os exemplos executáveis de URL.
 Em `app/`: `npm ci`, `npm run lint -- --max-warnings=0`,
 `npm test -- --run` e `npm run build`.
-O CI executa esses quatro checks; a suíte tem 436 cenários em 21 arquivos,
+O CI executa esses quatro checks; a suíte tem 445 cenários em 22 arquivos,
 incluindo os 228 originais preservados, os testes PWA e os do modo de edição, sem skip/todo.
 `npm test` inicia Vitest em watch; `npm test -- --run` executa uma vez.
 `npm run build` gera `app/build/`; `npm run preview` serve esse build na porta 3000.
