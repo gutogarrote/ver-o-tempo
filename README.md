@@ -136,15 +136,20 @@ Abra um link como `/?rotina=1.n.ba-20.ja-25.ma-de-5.1930` para carregar tarefas 
 
 ## 💻 Como instalar
 
-Por enquanto o app roda **a partir de um computador da casa**. Você instala uma vez e depois abre na TV, no tablet ou no celular pela rede Wi-Fi.
+Há dois jeitos de usar o app:
+
+- **Versão publicada (HTTPS), quando houver uma.** O projeto já está preparado para ser publicado como site estático (Cloudflare Workers Static Assets; veja [Implantação](#implantação-cloudflare-workers-static-assets-fase-3)). Este README não indica um endereço público. Em uma versão de produção em HTTPS, basta abrir o endereço no navegador, sem computador da casa ligado, e dá para **instalar como app** (PWA) no Android, no iPhone/iPad ou no computador. Ela funciona **sem internet** só depois de uma primeira visita completa com internet e de recarregar a página uma vez; a primeira visita offline não funciona. Veja o [guia de instalação, offline e atualização](docs/pwa.md).
+- **No seu computador (modo local), descrito abaixo.** Você instala uma vez e depois abre na TV, no tablet ou no celular pela rede Wi-Fi. Nesse modo o computador precisa ficar ligado, e o `npm start` não instala o app nem funciona offline (o modo de desenvolvimento não registra o service worker).
+
+As rotinas ficam guardadas **por endereço**: o que você salvou em `localhost` ou no endereço da rede local não aparece automaticamente na versão publicada (nem o contrário). Para levar uma rotina, use o link de rotina (veja [Configuração por URL](#configuração-por-url)).
 
 ### PELO TERMINAL
 
 Para quem já tem [Git](https://git-scm.com/) e [Node.js](https://nodejs.org/) (22.23.3 LTS, conforme `.nvmrc`) instalados:
 
 ```bash
-git clone https://github.com/camerafilme/ninarotina.git
-cd ninarotina/app
+git clone https://github.com/gutogarrote/ver-o-tempo.git
+cd ver-o-tempo/app
 npm ci
 npm start
 ```
@@ -162,7 +167,7 @@ O Node.js é um programa gratuito que faz o app funcionar.
 2. Baixe a versão **22.23.3 LTS** e instale como qualquer outro programa (pode ir clicando em "Avançar"/"Continuar").
 
 #### 2. Baixe o app
-1. No topo desta página, clique no botão verde **`<> Code`** e depois em **Download ZIP**.
+1. Na [página do projeto no GitHub](https://github.com/gutogarrote/ver-o-tempo), clique no botão verde **`<> Code`** e depois em **Download ZIP**.
 2. Descompacte o arquivo baixado numa pasta fácil de achar, como **Documentos**.
 3. Dentro dela haverá uma pasta chamada **`app`**. É essa que importa.
 
@@ -200,7 +205,7 @@ Depois do `npm start`, o terminal mostra algo assim:
 Com o aparelho **na mesma rede Wi-Fi** do computador, abra o navegador dele e digite o endereço da linha **Network** (o número será diferente na sua casa). Numa smart TV, use o navegador da própria TV.
 
 #### Das próximas vezes
-Basta abrir o terminal na pasta `app` (passo 3) e digitar `npm start`. O computador precisa ficar ligado, com a janela do terminal aberta, enquanto vocês usam o app. Para desligar, feche a janela do terminal (ou aperte **Ctrl + C** nela).
+Basta abrir o terminal na pasta `app` (passo 3) e digitar `npm start`. No modo local, o computador precisa ficar ligado, com a janela do terminal aberta, enquanto vocês usam o app. Para desligar, feche a janela do terminal (ou aperte **Ctrl + C** nela).
 
 ---
 
@@ -211,15 +216,15 @@ Este é um projeto em andamento. Por enquanto:
 - **Sons de aviso ainda não tocam.** Os avisos sonoros ("faltam 5 minutos", "falta 1 minuto", "tarefa concluída") estão planejados, mas ainda não funcionam.
 - **Uma rotina de manhã e uma de noite, iguais todos os dias.** Ainda não dá para ter rotinas diferentes para cada dia da semana (por exemplo, sábado sem escola).
 - **Cada aparelho guarda suas próprias mudanças.** Se você editar a rotina no celular, a TV não fica sabendo. Faça as mudanças no aparelho que fica à vista da criança.
-- **Precisa de um computador ligado** para funcionar (veja "Como instalar").
+- **Sem endereço público neste README.** Sem uma versão publicada em HTTPS, o app roda no modo local, que precisa de um computador ligado (veja "Como instalar"). Uma versão publicada não precisa dele e pode ser instalada e usada offline, conforme o [guia PWA](docs/pwa.md).
 
 ## 🔒 Privacidade
 
-O app não tem cadastro, login ou backend de rotinas. As configurações ficam no navegador de cada aparelho. Fontes são carregadas do Google Fonts; um link compartilhado pode expor os nomes e horários que transporta.
+O app não tem cadastro, login ou backend de rotinas. As configurações ficam no navegador de cada aparelho (e de cada endereço). As fontes Nunito e Fredoka vêm junto com o app, servidas pelo próprio site (licenças SIL OFL 1.1 em [`app/src/assets/fonts/`](app/src/assets/fonts/README.md)); nenhuma chamada ao Google Fonts é feita. Um link compartilhado pode expor os nomes e horários que transporta.
 
 ## 🙏 De onde veio
 
-Este projeto nasceu do [ver-o-tempo](https://github.com/gutogarrote/ver-o-tempo), um app para visualizar o tempo em rotinas com crianças, e foi redesenhado para ficar mais claro, mais divertido e fácil de ler de longe.
+Este é o repositório do [ver-o-tempo](https://github.com/gutogarrote/ver-o-tempo), um app para visualizar o tempo em rotinas com crianças. A interface foi redesenhada para ficar mais clara, mais divertida e fácil de ler de longe.
 
 *Quer mexer no código?* Veja [`app/CHANGES.MD`](app/CHANGES.MD) e [`CLAUDE.md`](CLAUDE.md) para detalhes técnicos.
 
@@ -235,8 +240,9 @@ Este projeto nasceu do [ver-o-tempo](https://github.com/gutogarrote/ver-o-tempo)
 - It adapts to the screen: a horizontal ribbon on a TV, a vertical scrolling list on a phone.
 - Parents tap **✏️** to edit the routine on the main screen: ▲/▼ reorder, −1/+1 minute (every duration must be a whole number from 1 to 180; saving is disabled otherwise), **+** between tasks inserts one there, and −5/+5 move the routine's end time. It is a draft until **Salvar** (save); **Cancelar** discards it. Done marks stay with their tasks. The full editor and the deadline live behind the **☰** menu.
 - The end time is shown on the final milestone (phone) and above **+5 min** (TV); the normal **+5 min** still adds time for this run only.
-- **Install:** get [Node.js](https://nodejs.org/) (22.23.3 LTS, pinned in `.nvmrc`), download this repo as a ZIP, open a terminal in the `app` folder and run `npm ci`, then `npm start`. To use it on a TV or phone on the same Wi-Fi, open the "Network" address that `npm start` prints.
-- **Not yet available:** sound alerts, different routines per weekday, and syncing between devices. Settings stay in each device's browser, with no accounts, login or routines backend. Fonts load from Google Fonts; shared URLs can expose the names and schedules they contain.
+- **Two ways to run it.** (1) A published HTTPS build, when there is one: the project is prepared for Cloudflare Workers Static Assets, but this README lists no public address. A production HTTPS build needs no home computer, can be installed as an app (PWA) and works offline after one complete online visit plus a reload; the very first visit cannot be offline. See [docs/pwa.md](docs/pwa.md). (2) Locally: get [Node.js](https://nodejs.org/) (22.23.3 LTS, pinned in `.nvmrc`), then `git clone https://github.com/gutogarrote/ver-o-tempo.git`, `cd ver-o-tempo/app`, `npm ci`, `npm start` (or download the ZIP from GitHub). To use it on a TV or phone on the same Wi-Fi, open the "Network" address that `npm start` prints. The computer must stay on, and the dev server does not install the app or work offline.
+- Routines are stored per address (origin): data saved on `localhost` or the local network address does not move to a published address by itself; use a routine link to carry a routine.
+- **Not yet available:** sound alerts, different routines per weekday, and syncing between devices. Settings stay in each device's browser, with no accounts, login or routines backend. Fonts (Nunito, Fredoka, SIL OFL 1.1) are self-hosted with the app; no Google Fonts requests. Shared URLs can expose the names and schedules they contain.
 
 ## Manutenção e verificações
 
