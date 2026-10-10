@@ -46,6 +46,9 @@ Se o horário acabar e ainda faltar alguma coisa, o app **mantém o encerramento
 
 ![Depois do horário: a zona de "Hora de sair" acesa](docs/screenshots/tv-passou-da-hora.png)
 
+### O horário final sempre à vista
+O fim da rotina mostra **a que horas ela termina**: no celular, no marco final ("Hora de dormir · ÀS 21:00", fixo no rodapé e no fim da fita); na TV e no computador, em destaque (**FIM 06:30**) logo acima do botão **+5 min**. Ao tocar em **+5 min**, ou ao mudar o horário no modo de edição, o número muda na hora.
+
 ### Na TV ou no celular
 O app se ajusta sozinho à tela:
 
@@ -69,16 +72,53 @@ O app se ajusta sozinho à tela:
 ### Se vocês estiverem adiantados ou atrasados
 Toque no bloco da tarefa que vocês estão fazendo **agora**. O app entende "estamos aqui" e ajusta o horário de término para essa tarefa começar neste momento.
 
-### Menu dos adultos (o botão ✨)
-Para a tela da criança ficar limpa, os ajustes ficam escondidos atrás do botão amarelo **✨**, ao lado do nome do app:
+### ✏️ Editar a rotina na própria tela
+No uso normal a tela fica limpa: só aparece um botão discreto **✏️** (no celular, no rodapé ao lado de **+5 min**; na TV, **✏️ Editar** abaixo de **+5 min**). Ao tocar nele, a rotina que está na tela entra no **modo de edição**:
+
+<p>
+  <img src="docs/screenshots/celular-editar.png" alt="Modo de edição no celular: setas, −1/+1, + entre tarefas e −5/+5 no rodapé" width="260">
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/celular-reordenar.png" alt="Depois de reordenar e ajustar minutos: horários recalculados" width="260">
+</p>
+
+![Modo de edição na TV: a fita vira prévia e as tarefas aparecem em lista](docs/screenshots/tv-editar.png)
+
+Tudo o que você mexe é um **rascunho**: a fita mostra a prévia na hora, mas nada é gravado até você tocar em **Salvar**.
+
+- **Salvar** grava de uma vez no aparelho e atualiza o link da barra (veja abaixo).
+- **Cancelar** descarta tudo o que foi mexido (ordem, minutos, tarefas novas, nomes e horário final) e volta ao uso normal, sem gravar nada.
+- Enquanto edita, o menu ☰, os ✓, o "pular para" e o +5 normal ficam pausados, para não haver duas edições ao mesmo tempo.
+- As tarefas já marcadas com ✓ **continuam marcadas** depois de mudar a ordem, os minutos, inserir tarefas ou mudar o horário final; cada marca acompanha a sua tarefa.
+
+**Exemplo — mudar a ordem.** Na noite, "Fazer cocô" vem depois do "Jantar" e você quer antes: toque em **✏️**, depois em **▲** na linha de "Fazer cocô". Cada toque troca a tarefa com a vizinha; o **▲** da primeira e o **▼** da última ficam desativados. Se tocar várias vezes no mesmo lugar, a lista acompanha a tarefa, que continua debaixo do dedo (ou à vista, quando a lista chega ao fim). Toque em **Salvar**.
+
+**Exemplo — ajustar a duração.** O jantar está levando mais tempo: toque em **+1** na linha do "Jantar" três vezes (20 → 23 min). O número no meio mostra a duração e também pode ser digitado. **−1** para em 1 minuto (o botão fica desativado). Os horários de início das tarefas ("20:10", "20:37"…) são recalculados na prévia.
+
+**Exemplo — inserir uma tarefa entre duas.** Entre cada par de tarefas (e no começo e no fim) há um **+**. Toque no **+** entre "Escovar os dentes" e "Xixi tático": abre uma caixa "Nova tarefa — Entre Escovar os dentes e Xixi tático". Escolha uma sugestão (por exemplo **📚 Ler livro**) ou digite um nome, ajuste ícone, cor e minutos e toque em **Adicionar tarefa**. Ela entra exatamente ali. No **⋯** de cada linha dá para trocar ícone e cor ou remover a tarefa.
+
+<p>
+  <img src="docs/screenshots/celular-inserir.png" alt="Caixa Nova tarefa entre Escovar os dentes e Xixi tático" width="260">
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/celular-horario-final.png" alt="Horário final antecipado para 20:50 com aviso de tempo apertado" width="260">
+</p>
+
+**Exemplo — mudar o horário final.** No modo de edição, o marco final mostra **−5 min** e **+5 min**. Eles mudam **a hora em que a rotina termina** (o horário final, por exemplo de 21:00 para 20:50), **não** a duração da última tarefa. O app mostra o horário anterior ("Antes: 21:00") e avisa quando:
+
+- **⚠️ Apertado:** o que falta das tarefas não cabe até o novo horário (ex.: "faltam 55 min de tarefas e só há 44 min até 20:50");
+- **⏰ Já passou:** o horário final ficou no passado (por exemplo, editando depois da hora); use +5.
+
+O **−5** fica desativado quando levaria o fim para um horário que já passou. Ao salvar, o novo horário passa a valer para a rotina e vai para o link. Já o **+5 min** do uso normal continua igual: dá mais 5 minutos só para esta vez, sem mudar a rotina salva nem o link.
+
+### Menu dos adultos (o botão ☰)
+Os ajustes completos ficam atrás do botão amarelo **☰** (na TV e no computador, **☰ Menu**), ao lado do nome do app:
 
 ![Menu dos adultos aberto](docs/screenshots/tv-menu-pais.png)
 
-- **✏️ Editar esta rotina:** mude as tarefas da rotina que está na tela. Dá para trocar nome, emoji, cor e duração (em minutos), além de adicionar, apagar e mudar a ordem das tarefas.
-- **⚙️ Rotinas:** o editor completo, com todas as rotinas e o horário em que cada uma deve terminar.
+- **✏️ Editar esta rotina:** abre o mesmo modo de edição do botão ✏️ (veja acima).
+- **⚙️ Rotinas:** o editor completo, com todas as rotinas e o horário em que cada uma deve terminar. Também tem **Cancelar** e **Salvar Alterações**, e as setas da primeira e da última tarefa ficam desativadas.
 - **Horário limite:** a hora em que a rotina precisa acabar (por exemplo, a hora de sair para a escola). O app calcula de trás para frente quando cada tarefa deve começar.
 
-As mudanças ficam guardadas **no próprio aparelho**, no navegador. Ao salvar no editor, o link da barra é atualizado sem recarregar: copie e guarde esse novo endereço para reabrir ou compartilhar tarefas, ordem, durações, nomes e horário final. No menu, use **Salvar horário** para incluir o prazo no link.
+As mudanças ficam guardadas **no próprio aparelho**, no navegador. Ao salvar (no modo de edição ou no editor completo), o link da barra é atualizado sem recarregar: copie e guarde esse novo endereço para reabrir ou compartilhar tarefas, ordem, durações, nomes e horário final. No menu, use **Salvar horário** para incluir o prazo no link. As marcas ✓ não vão para o link: elas valem só para o momento.
 
 ### Configuração por URL
 
@@ -191,7 +231,8 @@ Este projeto nasceu do [ver-o-tempo](https://github.com/gutogarrote/ver-o-tempo)
 - A big card shows the current task and a countdown. It turns red in the last 2 minutes and lists what's coming next.
 - After the deadline, it keeps the closing zone for up to three hours before rolling to the next occurrence. It calmly shows where you should be by now ("time to leave" / "time to sleep") until you tap **Recomeçar** (restart).
 - It adapts to the screen: a horizontal ribbon on a TV, a vertical scrolling list on a phone.
-- Parents can edit tasks, emojis, colors, durations and the deadline behind the ✨ button.
+- Parents tap **✏️** to edit the routine on the main screen: ▲/▼ reorder, −1/+1 minute (minimum 1), **+** between tasks inserts one there, and −5/+5 move the routine's end time. It is a draft until **Salvar** (save); **Cancelar** discards it. Done marks stay with their tasks. The full editor and the deadline live behind the **☰** menu.
+- The end time is shown on the final milestone (phone) and above **+5 min** (TV); the normal **+5 min** still adds time for this run only.
 - **Install:** get [Node.js](https://nodejs.org/) (22.23.3 LTS, pinned in `.nvmrc`), download this repo as a ZIP, open a terminal in the `app` folder and run `npm ci`, then `npm start`. To use it on a TV or phone on the same Wi-Fi, open the "Network" address that `npm start` prints.
 - **Not yet available:** sound alerts, different routines per weekday, and syncing between devices. Settings stay in each device's browser, with no accounts, login or routines backend. Fonts load from Google Fonts; shared URLs can expose the names and schedules they contain.
 
@@ -201,8 +242,8 @@ A fase 2 usa Vite e Vitest, mantendo React 19, Tailwind 3, a interface e os cont
 Use Node **22.23.3** (`nvm use` na raiz) e Python 3 no PATH para os exemplos executáveis de URL.
 Em `app/`: `npm ci`, `npm run lint -- --max-warnings=0`,
 `npm test -- --run` e `npm run build`.
-O CI executa esses quatro checks; a suíte tem 269 cenários em 15 arquivos,
-incluindo os 228 originais preservados e novos testes PWA, sem skip/todo.
+O CI executa esses quatro checks; a suíte tem 408 cenários em 21 arquivos,
+incluindo os 228 originais preservados, os testes PWA e os do modo de edição, sem skip/todo.
 `npm test` inicia Vitest em watch; `npm test -- --run` executa uma vez.
 `npm run build` gera `app/build/`; `npm run preview` serve esse build na porta 3000.
 O lint usa configuração explícita em `app/eslint.config.mjs`, incluindo os testes.
