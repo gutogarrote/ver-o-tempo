@@ -290,16 +290,27 @@ test('explicit endTime save updates URL while jumps and deadline draft do not', 
   expect(stored().monday.evening.endTime).toBe('20:45');
 });
 
-test('unrepresentable edit saves locally and reports link failure', async () => {
+// Updated for issue #26: a duration must be a whole number from 1 to 180 minutes, so a typed
+// 0 is no longer saved locally (previously it was, and only the link update failed). The
+// "saved locally, link not updated" contract is still covered by the literal underscore test.
+test('zero duration cannot be saved (formerly: unrepresentable edit saves locally and reports link failure)', async () => {
   open('?rotina=1.n.ba-5.2040');
   render(<App />);
   await screen.findByRole('button', { name: 'Pular para Banho' });
+  const before = localStorage.getItem('routines');
   edit();
   fireEvent.change(screen.getByDisplayValue('5'), { target: { value: '0' } });
+  expect(screen.getByRole('button', { name: 'Salvar' })).toBeDisabled();
   fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
-  expect(stored().monday.evening.tasks[0].minutes).toBe(0);
+  expect(localStorage.getItem('routines')).toBe(before);
+  expect(stored().monday.evening.tasks[0].minutes).toBe(5);
   expect(window.location.search).toBe('?rotina=1.n.ba-5.2040');
-  expect(screen.getByRole('alert')).toHaveTextContent('não foi possível atualizar o link');
+  expect(screen.getByRole('alert')).toHaveTextContent('Duração inválida em Banho');
+  fireEvent.change(screen.getByDisplayValue('0'), { target: { value: '6' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+  expect(stored().monday.evening.tasks[0].minutes).toBe(6);
+  expect(window.location.search).toBe('?rotina=2.n.ba-6.2040');
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });
 
 test('full editor on shortcut preserves untouched local periods/days while saving selected period', async () => {

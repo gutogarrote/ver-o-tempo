@@ -1,6 +1,9 @@
 import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import { C, FREDOKA, NUNITO, doneOverlay } from './theme';
-import { MAX_TASK_MIN, MIN_TASK_MIN, canStep } from '../../lib/routineDraft';
+import { MAX_TASK_MIN, MIN_TASK_MIN, VALID_MINUTES_HINT, canStep, isValidMinutes, parseMinutes } from '../../lib/routineDraft';
+
+// Id of the message that explains an invalid duration (aria-describedby of the fields).
+export const MINUTES_ERROR_ID = 'edit-minutes-error';
 
 // Controls of the edit mode (Home `edit`), shared by the phone and TV layouts. Normal use
 // shows none of them: only the discreet ✏️ button (EditButton). Sizes per layout: the TV
@@ -44,13 +47,16 @@ export function EditButton({ onEdit, label = true, font = 15, h = 44 }) {
   );
 }
 
-export function EditBar({ onCancel, onSave, font = 15, h = 40, glyphs = true }) {
+// Salvar is disabled while a duration is invalid (`blocked`); the message says why.
+export function EditBar({ onCancel, onSave, font = 15, h = 40, glyphs = true, blocked = false }) {
   return (
     <div style={{ display: 'flex', gap: 8, flex: 'none' }}>
       <button type="button" className="fita-btn" onClick={onCancel} style={pillStyle({ font, h, padX: glyphs ? 14 : 13 })} title="Descartar as alterações e voltar">
         {glyphs && <span aria-hidden="true">✕</span>}Cancelar
       </button>
-      <button type="button" className="fita-btn" onClick={onSave} style={pillStyle({ tone: 'sun', font, h, padX: glyphs ? 14 : 15 })} title="Guardar as alterações neste aparelho e no link">
+      <button type="button" className="fita-btn" onClick={onSave} disabled={blocked} aria-describedby={blocked ? MINUTES_ERROR_ID : undefined}
+        style={{ ...pillStyle({ tone: 'sun', font, h, padX: glyphs ? 14 : 15 }), ...(blocked ? { opacity: 0.45, boxShadow: 'none' } : {}) }}
+        title={blocked ? 'Corrija as durações para salvar' : 'Guardar as alterações neste aparelho e no link'}>
         {glyphs && <span aria-hidden="true">✓</span>}Salvar
       </button>
     </div>
@@ -109,7 +115,7 @@ function InsertSlot({ items, at, s, size, onInsert }) {
 // Rows of the edit mode: name, ↑/↓ (swap with the neighbour), −1/+1 minute with the minutes
 // shown (and typed), ⋯ for icon/color/removal; a + slot between rows (and at both ends)
 // inserts a task exactly there. `blocks` are the preview's view blocks (same order).
-export function EditTaskList({ items, blocks, timeLabel, size = 'phone', onMove, onStep, onChange, onInsert, onDetails }) {
+export function EditTaskList({ items, blocks, timeLabel, size = 'phone', onMove, onStep, onChange, onMinutes, onInsert, onDetails, invalid = [] }) {
   const s = SIZES[size];
   const scrollRef = useRef(null);
   const anchor = useRef(null);
@@ -143,6 +149,7 @@ export function EditTaskList({ items, blocks, timeLabel, size = 'phone', onMove,
     const b = blocks[i] || {};
     const name = nameOf(t, i);
     const done = it.mark !== undefined;
+    const bad = it.minutesText !== undefined || !isValidMinutes(t.minutes);
     rows.push(<InsertSlot key={`slot-${it.key}`} items={items} at={i} s={s} size={size} onInsert={onInsert} />);
     rows.push(
       <div
@@ -183,16 +190,19 @@ export function EditTaskList({ items, blocks, timeLabel, size = 'phone', onMove,
             {size === 'tv' && b.startMs !== undefined ? `às ${timeLabel(b.startMs)}` : ''}
           </span>
           <SmallBtn label={`Menos 1 minuto em ${name}`} s={s} disabled={!canStep(t, -1)} onClick={() => onStep(i, -1)}>−1</SmallBtn>
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 3, flex: 'none', background: '#fff', borderRadius: 10, padding: '0 6px 0 2px', height: s.btnH, boxSizing: 'border-box', font: `800 ${s.small}px ${NUNITO}`, color: C.muted }}>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 3, flex: 'none', background: bad ? C.redBg : '#fff', boxShadow: bad ? `inset 0 0 0 3px ${C.red}` : 'none', borderRadius: 10, padding: '0 6px 0 2px', height: s.btnH, boxSizing: 'border-box', font: `800 ${s.small}px ${NUNITO}`, color: C.muted }}>
             <input
               type="number"
               inputMode="numeric"
               min={MIN_TASK_MIN}
               max={MAX_TASK_MIN}
+              step={1}
               aria-label={`Minutos de ${name}`}
-              value={Number.isFinite(t.minutes) ? t.minutes : ''}
-              onChange={(e) => onChange(i, { minutes: parseInt(e.target.value, 10) })}
-              style={{ width: size === 'tv' ? 54 : 40, border: 0, background: 'transparent', textAlign: 'center', font: `900 ${s.font}px ${NUNITO}`, color: C.ink, padding: 0, }}
+              aria-invalid={bad || undefined}
+              aria-describedby={bad ? MINUTES_ERROR_ID : undefined}
+              value={it.minutesText ?? (Number.isFinite(t.minutes) ? t.minutes : '')}
+              onChange={(e) => onMinutes(i, e.target.value)}
+              style={{ width: size === 'tv' ? 54 : 40, border: 0, background: 'transparent', textAlign: 'center', font: `900 ${s.font}px ${NUNITO}`, color: bad ? C.red : C.ink, padding: 0 }}
               className="no-spin"
             />
             min
@@ -203,6 +213,12 @@ export function EditTaskList({ items, blocks, timeLabel, size = 'phone', onMove,
     );
   });
   rows.push(<InsertSlot key="slot-end" items={items} at={items.length} s={s} size={size} onInsert={onInsert} />);
+  // Why Salvar is disabled, pinned at the top of the list while any duration is invalid.
+  const error = invalid.length > 0 && (
+    <div id={MINUTES_ERROR_ID} role="alert" data-testid="minutes-error" style={{ position: 'sticky', top: 0, zIndex: 6, margin: '8px 0 0', background: C.redBg, color: C.red, borderRadius: 12, padding: size === 'tv' ? '10px 14px' : '7px 10px', font: `800 ${size === 'tv' ? 19 : 13}px/1.3 ${NUNITO}`, boxShadow: `inset 0 0 0 2px ${C.red}` }}>
+      ⚠️ Duração inválida em {invalid.join(', ')}. {VALID_MINUTES_HINT} Corrija para poder salvar.
+    </div>
+  );
 
   return (
     <div
@@ -213,6 +229,7 @@ export function EditTaskList({ items, blocks, timeLabel, size = 'phone', onMove,
       className="no-scrollbar"
       style={{ position: 'relative', flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', borderRadius: s.radius, background: C.track, padding: '0 8px', display: 'flex', flexDirection: 'column' }}
     >
+      {error}
       {rows}
     </div>
   );
@@ -290,9 +307,13 @@ export function TaskDialog({ dialog, catalog, onClose, onSubmit, onRemove }) {
     return () => { document.removeEventListener('keydown', onKey); if (opener?.isConnected) opener.focus(); };
   }, [dialog.opener]);
 
-  const minutes = Number.isFinite(form.minutes) ? form.minutes : '';
-  const step = (d) => setForm((f) => ({ ...f, minutes: Math.min(MAX_TASK_MIN, Math.max(MIN_TASK_MIN, (Number(f.minutes) || 0) + d)) }));
-  const valid = String(form.name || '').trim() && Number(form.minutes) >= MIN_TASK_MIN && Number(form.minutes) <= MAX_TASK_MIN;
+  // Minutes are kept as typed (text) and only accepted as a whole number from 1 to 180.
+  const [minutesText, setMinutesText] = React.useState(() => dialog.minutesText ?? (Number.isFinite(dialog.task.minutes) ? String(dialog.task.minutes) : ''));
+  const parsed = parseMinutes(minutesText);
+  const base = parsed ?? (isValidMinutes(form.minutes) ? form.minutes : MIN_TASK_MIN);
+  const step = (d) => setMinutesText(String(Math.min(MAX_TASK_MIN, Math.max(MIN_TASK_MIN, base + d))));
+  const valid = String(form.name || '').trim() && parsed !== null;
+  const minutesErrorId = `${titleId}-min-error`;
   const field = { border: `2px solid ${C.toggleBg}`, borderRadius: 12, padding: '8px 10px', font: `700 16px ${NUNITO}`, color: C.ink, boxSizing: 'border-box', background: '#fff' };
   const label = { display: 'flex', flexDirection: 'column', gap: 4, font: `800 13px ${NUNITO}`, color: C.muted };
   const pick = (id, item) => setForm((f) => ({ ...f, name: item.name, icon: item.icon, color: item.color, catalogIds: [id] }));
@@ -323,7 +344,7 @@ export function TaskDialog({ dialog, catalog, onClose, onSubmit, onRemove }) {
           </div>
         )}
         <form
-          onSubmit={(e) => { e.preventDefault(); if (valid) onSubmit({ ...form, minutes: Number(form.minutes) }); }}
+          onSubmit={(e) => { e.preventDefault(); if (valid) onSubmit({ ...form, minutes: parsed }); }}
           style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
         >
           <label style={label}>
@@ -342,11 +363,15 @@ export function TaskDialog({ dialog, catalog, onClose, onSubmit, onRemove }) {
             <div style={label}>
               <span id={`${titleId}-min`}>Duração</span>
               <div role="group" aria-labelledby={`${titleId}-min`} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <button type="button" className="fita-btn" aria-label="Menos 1 minuto" disabled={!(Number(form.minutes) > MIN_TASK_MIN)} onClick={() => step(-1)} style={{ ...pillStyle({ h: 44, padX: 0 }), width: 44 }}>−1</button>
-                <input type="number" inputMode="numeric" min={MIN_TASK_MIN} max={MAX_TASK_MIN} aria-label="Minutos" value={minutes} onChange={(e) => setForm((f) => ({ ...f, minutes: parseInt(e.target.value, 10) }))} style={{ ...field, width: 64, textAlign: 'center' }} />
-                <button type="button" className="fita-btn" aria-label="Mais 1 minuto" disabled={!(Number(form.minutes) < MAX_TASK_MIN)} onClick={() => step(1)} style={{ ...pillStyle({ h: 44, padX: 0 }), width: 44 }}>+1</button>
+                <button type="button" className="fita-btn" aria-label="Menos 1 minuto" disabled={parsed !== null && parsed <= MIN_TASK_MIN} onClick={() => step(-1)} style={{ ...pillStyle({ h: 44, padX: 0 }), width: 44 }}>−1</button>
+                <input type="number" inputMode="numeric" min={MIN_TASK_MIN} max={MAX_TASK_MIN} step={1} aria-label="Minutos" value={minutesText}
+                  aria-invalid={parsed === null || undefined} aria-describedby={parsed === null ? minutesErrorId : undefined}
+                  onChange={(e) => setMinutesText(e.target.value)}
+                  style={{ ...field, width: 64, textAlign: 'center', ...(parsed === null ? { borderColor: C.red, background: C.redBg, color: C.red } : {}) }} />
+                <button type="button" className="fita-btn" aria-label="Mais 1 minuto" disabled={parsed !== null && parsed >= MAX_TASK_MIN} onClick={() => step(1)} style={{ ...pillStyle({ h: 44, padX: 0 }), width: 44 }}>+1</button>
                 <span style={{ font: `800 14px ${NUNITO}` }}>min</span>
               </div>
+              {parsed === null && <div id={minutesErrorId} role="alert" style={{ font: `800 13px ${NUNITO}`, color: C.red }}>⚠️ {VALID_MINUTES_HINT}</div>}
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end', marginTop: 4 }}>

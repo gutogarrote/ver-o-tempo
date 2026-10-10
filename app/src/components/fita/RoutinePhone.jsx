@@ -150,7 +150,7 @@ export default function RoutinePhone({ v, closing, clock, isMorning, onPick, onJ
             ? <h1 style={{ margin: 0, fontFamily: FREDOKA, fontSize: 20, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{isMorning ? '☀️' : '🌙'} Editando</h1>
             : <h1 style={{ margin: 0, fontFamily: FREDOKA, fontSize: 'min(22px, 5.6vw)', fontWeight: 600, whiteSpace: 'nowrap' }}>Rotina da Nina</h1>}
         </div>
-        {edit ? <EditBar onCancel={edit.onCancel} onSave={edit.onSave} font={15} h={42} glyphs={false} /> : (
+        {edit ? <EditBar onCancel={edit.onCancel} onSave={edit.onSave} blocked={edit.invalid.length > 0} font={15} h={42} glyphs={false} /> : (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ display: 'flex', gap: 3, background: C.toggleBg, padding: 3, borderRadius: 999 }}>
             <IconToggle on={isMorning} onClick={() => onPick('morning')} label="Manhã">☀️</IconToggle>
@@ -191,7 +191,7 @@ export default function RoutinePhone({ v, closing, clock, isMorning, onPick, onJ
       <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
         {edit && (
           <EditTaskList items={edit.items} blocks={v.blocks} timeLabel={edit.timeLabel} size="phone"
-            onMove={edit.onMove} onStep={edit.onStep} onChange={edit.onChange} onInsert={edit.onInsert} onDetails={edit.onDetails} />
+            onMove={edit.onMove} onStep={edit.onStep} onChange={edit.onChange} onMinutes={edit.onMinutes} invalid={edit.invalid} onInsert={edit.onInsert} onDetails={edit.onDetails} />
         )}
         <div ref={trackRef} onScroll={onScroll} className="no-scrollbar" style={{ position: 'relative', flex: 1, minHeight: 0, borderRadius: 20, background: C.track, overflowY: 'auto', overflowX: 'hidden', display: edit ? 'none' : 'block' }}>
           <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: col.closeY + closeH }}>

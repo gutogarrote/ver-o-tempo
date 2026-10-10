@@ -346,6 +346,83 @@ describe.each([false, true])('edit mode (phone: %s)', (phone) => {
     expect(marked('Jantar')).toBe(true);
   });
 
+  // Issue #26: durations are whole numbers from 1 to 180; invalid typing never reaches storage.
+  test.each([['0'], ['-1'], [''], ['2.5'], ['181']])('typed %j: field marked invalid, Salvar disabled, nothing written; a valid value then saves', (text) => {
+    const { onSet } = renderHome({ phone });
+    const href = window.location.href;
+    enterEdit();
+    const field = () => screen.getByRole('spinbutton', { name: 'Minutos de Jantar' });
+    fireEvent.change(field(), { target: { value: text } });
+    expect(field()).toHaveAttribute('aria-invalid', 'true');
+    expect(field()).toHaveValue(text === '' ? null : Number(text));
+    expect(screen.getByRole('alert')).toHaveTextContent('Duração inválida em Jantar. Use um número inteiro de 1 a 180 minutos.');
+    expect(field()).toHaveAccessibleDescription(/Duração inválida em Jantar/);
+    expect(btn('Salvar')).toBeDisabled();
+    fireEvent.click(btn('Salvar'));
+    expect(onSet).not.toHaveBeenCalled();
+    expect(localStorage.getItem('routines')).toBeNull();
+    expect(window.location.href).toBe(href);
+    expect(btn('Cancelar')).toBeEnabled();
+    // Fix it by typing, then save: exactly the typed valid value is stored.
+    fireEvent.change(field(), { target: { value: '7' } });
+    expect(field()).not.toHaveAttribute('aria-invalid');
+    expect(screen.queryByRole('alert')).toBeNull();
+    save();
+    expect(onSet).toHaveBeenCalledTimes(1);
+    expect(stored().monday.evening.tasks.map((t) => t.minutes)).toEqual([20, 7, 10, 10]);
+  });
+
+  test('invalid typing then Cancelar discards it; −1/+1 also fix an invalid field', () => {
+    renderHome({ phone });
+    enterEdit();
+    const field = () => screen.getByRole('spinbutton', { name: 'Minutos de Dentes' });
+    fireEvent.change(field(), { target: { value: '0' } });
+    cancel();
+    expect(localStorage.getItem('routines')).toBeNull();
+    enterEdit();
+    expect(field()).toHaveValue(10);
+    fireEvent.change(field(), { target: { value: '-1' } });
+    fireEvent.click(btn('Mais 1 minuto em Dentes')); // from the last valid duration (10)
+    expect(field()).toHaveValue(11);
+    expect(btn('Salvar')).toBeEnabled();
+    fireEvent.change(field(), { target: { value: '' } });
+    fireEvent.click(btn('Menos 1 minuto em Dentes'));
+    expect(field()).toHaveValue(10);
+    fireEvent.change(field(), { target: { value: '1' } });
+    expect(btn('Menos 1 minuto em Dentes')).toBeDisabled();
+    save();
+    expect(stored().monday.evening.tasks.map((t) => t.minutes)).toEqual([20, 20, 1, 10]);
+  });
+
+  test('insertion/details dialog: 0, −1, empty, 2.5 and 181 cannot be added or applied', () => {
+    renderHome({ phone });
+    enterEdit();
+    fireEvent.click(btn('Inserir tarefa entre Banho e Jantar'));
+    const dialog = screen.getByRole('dialog', { name: 'Nova tarefa' });
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Nome' }), { target: { value: 'Pijama' } });
+    const minutesField = within(dialog).getByRole('spinbutton', { name: 'Minutos' });
+    for (const text of ['0', '-1', '', '2.5', '181']) {
+      fireEvent.change(minutesField, { target: { value: text } });
+      expect(minutesField).toHaveAttribute('aria-invalid', 'true');
+      expect(within(dialog).getByRole('alert')).toHaveTextContent('Use um número inteiro de 1 a 180 minutos.');
+      expect(within(dialog).getByRole('button', { name: 'Adicionar tarefa' })).toBeDisabled();
+    }
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Adicionar tarefa' }));
+    expect(names()).toEqual(['Banho', 'Jantar', 'Dentes', 'Historinha']);
+    fireEvent.change(minutesField, { target: { value: '3' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Adicionar tarefa' }));
+    expect(names()).toEqual(['Banho', 'Pijama', 'Jantar', 'Dentes', 'Historinha']);
+    expect(minutes()).toEqual([20, 3, 20, 10, 10]);
+    fireEvent.click(btn('Mais opções de Historinha'));
+    const details = screen.getByRole('dialog', { name: 'Editar tarefa' });
+    fireEvent.change(within(details).getByRole('spinbutton', { name: 'Minutos' }), { target: { value: '0' } });
+    expect(within(details).getByRole('button', { name: 'Aplicar' })).toBeDisabled();
+    fireEvent.click(within(details).getByRole('button', { name: 'Voltar' }));
+    expect(minutes()).toEqual([20, 3, 20, 10, 10]);
+    save();
+    expect(stored().monday.evening.tasks.map((t) => t.minutes)).toEqual([20, 3, 20, 10, 10]);
+  });
+
   test('session actions and the menu are paused while editing', () => {
     renderHome({ phone });
     enterEdit();
@@ -398,5 +475,26 @@ describe('final time and menu badge', () => {
     expect(menu).toHaveTextContent(/^$/);
     fireEvent.click(menu);
     expect(screen.getByRole('dialog', { name: 'Menu dos pais' })).toBeInTheDocument();
+  });
+});
+
+describe('full editor (⚙️ Rotinas) uses the same duration rule', () => {
+  test.each([['0'], ['-1'], [''], ['2.5'], ['181']])('typed %j blocks Salvar Alterações; a valid value saves', (text) => {
+    const { onSet } = renderHome({ phone: false });
+    fireEvent.click(btn('Menu dos pais'));
+    fireEvent.click(btn('⚙️ Rotinas'));
+    const field = () => screen.getAllByRole('spinbutton', { name: 'Minutos' })[1]; // morning: Mochila
+    fireEvent.change(field(), { target: { value: text } });
+    expect(field()).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByRole('alert')).toHaveTextContent('Duração inválida em Manhã: Mochila. Use um número inteiro de 1 a 180 minutos.');
+    expect(btn('Salvar Alterações')).toBeDisabled();
+    fireEvent.click(btn('Salvar Alterações'));
+    expect(onSet).not.toHaveBeenCalled();
+    expect(localStorage.getItem('routines')).toBeNull();
+    fireEvent.change(field(), { target: { value: '12' } });
+    expect(screen.queryByRole('alert')).toBeNull();
+    fireEvent.click(btn('Salvar Alterações'));
+    expect(stored().monday.morning.tasks.map((t) => t.minutes)).toEqual([20, 12, 1]);
+    expect(stored().monday.morning.tasks.every((t) => Number.isInteger(t.minutes))).toBe(true);
   });
 });

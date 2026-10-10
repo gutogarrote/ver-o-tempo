@@ -1,7 +1,7 @@
 import { MIN_MS, completeTask, defaultPlan } from './schedule';
 import {
-  MAX_TASK_MIN, canStep, deadlineStatus, draftTasks, insertTask, isDirty, moveItem, nextTaskId, removeTask, savedTasks,
-  shiftClock, startDraft, stepMinutes, updateTask,
+  MAX_TASK_MIN, canStep, deadlineStatus, draftTasks, insertTask, invalidItems, isDirty, isValidMinutes, moveItem, nextTaskId,
+  parseMinutes, removeTask, savedTasks, shiftClock, startDraft, stepMinutes, typeMinutes, updateTask,
 } from './routineDraft';
 
 const T0 = 19 * 60 * MIN_MS; // 19:00 as a plain timestamp
@@ -59,7 +59,7 @@ describe('moves, durations, insertions and removals never lose a task or a mark'
     d = updateTask(d, 1, { minutes: MAX_TASK_MIN });
     expect(canStep(draftTasks(d)[1], 1)).toBe(false);
     expect(stepMinutes(d, 1, 1)).toBe(d);
-    // A typed invalid value steps up from 0.
+    // An invalid stored value (e.g. NaN from older data) steps up from 0.
     d = updateTask(d, 0, { minutes: NaN });
     expect(draftTasks(stepMinutes(d, 0, 1))[0].minutes).toBe(1);
     expect(d.items[2].mark).toBe(1);
@@ -83,10 +83,42 @@ describe('moves, durations, insertions and removals never lose a task or a mark'
     expect(d.items[3].mark).toBe(1);
   });
 
-  test('saved tasks have numeric minutes and no duration field', () => {
-    const d = updateTask(base(), 0, { minutes: NaN });
-    expect(savedTasks(d).map((t) => t.minutes)).toEqual([0, 20, 10]);
+  // Updated for issue #26: invalid durations are no longer saved as 0 — the draft cannot be
+  // saved at all until they are fixed (Salvar is disabled; savedTasks refuses).
+  test('saved tasks keep integer minutes, no duration field, and never an invalid duration', () => {
+    const d = base();
+    expect(savedTasks(d).map((t) => t.minutes)).toEqual([20, 20, 10]);
     expect(savedTasks(d).every((t) => !('duration' in t))).toBe(true);
+    expect(() => savedTasks(updateTask(d, 0, { minutes: 0 }))).toThrow();
+    expect(() => savedTasks(typeMinutes(d, 0, ''))).toThrow();
+  });
+
+  test.each([['0'], ['-1'], [''], ['2.5'], ['181'], ['1e2'], ['abc']])('typed %j is kept as invalid text, never as minutes', (text) => {
+    let d = typeMinutes(base(), 1, text);
+    expect(d.items[1].minutesText).toBe(text);
+    expect(draftTasks(d)[1].minutes).toBe(20); // the preview keeps the last valid duration
+    expect(invalidItems(d).map((it) => it.task.name)).toEqual(['Jantar']);
+    expect(isDirty(d, tasks, '19:50')).toBe(true);
+    // A valid value, or a step, fixes it.
+    expect(invalidItems(typeMinutes(d, 1, '7'))).toEqual([]);
+    expect(draftTasks(typeMinutes(d, 1, '7'))[1].minutes).toBe(7);
+    d = stepMinutes(d, 1, -1);
+    expect(d.items[1].minutesText).toBeUndefined();
+    expect(draftTasks(d)[1].minutes).toBe(19);
+    expect(savedTasks(d).map((t) => t.minutes)).toEqual([20, 19, 10]);
+  });
+
+  test('parseMinutes accepts only whole numbers from 1 to 180', () => {
+    expect(['1', '07', ' 180 ', '45'].map(parseMinutes)).toEqual([1, 7, 180, 45]);
+    expect(['0', '-1', '', '2.5', '181', '1e2', 'x', null, undefined].map(parseMinutes)).toEqual(Array(9).fill(null));
+    expect([1, 180, 0, -1, 2.5, 181, NaN].map(isValidMinutes)).toEqual([true, true, false, false, false, false, false]);
+  });
+
+  test('a stored invalid duration (older data) blocks saving until fixed', () => {
+    const d = startDraft('evening', [{ id: 1, name: 'Velha', minutes: 0 }], null, '19:50');
+    expect(invalidItems(d)).toHaveLength(1);
+    expect(draftTasks(stepMinutes(d, 0, 1))[0].minutes).toBe(1);
+    expect(invalidItems(stepMinutes(d, 0, 1))).toEqual([]);
   });
 });
 

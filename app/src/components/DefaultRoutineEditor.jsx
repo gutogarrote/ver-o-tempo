@@ -1,4 +1,9 @@
 import React, { useState } from 'react';
+import { VALID_MINUTES_HINT, parseMinutes } from '../lib/routineDraft';
+
+// Durations follow the same rule as the edit mode: typed text is kept as is while typing, and
+// Salvar Alterações stays disabled until every task has a whole number from 1 to 180 minutes.
+const MINUTES_ERROR_ID = 'full-editor-minutes-error';
 
 const DefaultRoutineEditor = ({ routines, onSave, onCancel }) => {
   const [editableRoutines, setEditableRoutines] = useState(() => {
@@ -197,7 +202,17 @@ const DefaultRoutineEditor = ({ routines, onSave, onCancel }) => {
     }
   };
 
+  const invalidMinutes = [];
+  Object.keys(editableRoutines || {}).forEach((day) => {
+    Object.keys(editableRoutines[day] || {}).forEach((period) => {
+      (editableRoutines[day][period]?.tasks || []).forEach((t) => {
+        if (parseMinutes(t.minutes) === null) invalidMinutes.push(`${editableRoutines[day][period].name || period}: ${t.name || 'tarefa sem nome'}`);
+      });
+    });
+  });
+
   const handleSave = () => {
+    if (invalidMinutes.length) return;
     const clean = JSON.parse(JSON.stringify(editableRoutines));
     Object.keys(clean || {}).forEach((day) => {
       Object.keys(clean[day] || {}).forEach((period) => {
@@ -210,7 +225,7 @@ const DefaultRoutineEditor = ({ routines, onSave, onCancel }) => {
               name: t.name,
               icon: t.icon,
               color: t.color,
-              minutes: Number(t.minutes) || 0,
+              minutes: parseMinutes(t.minutes),
             };
           });
         }
@@ -343,11 +358,15 @@ const DefaultRoutineEditor = ({ routines, onSave, onCancel }) => {
                           <span className="inline-flex shrink-0 items-center gap-1 bg-white rounded-xl pr-2">
                             <input
                               type="number"
-                              value={task.minutes}
-                              onChange={(e) => handleTaskChange(day, period, task.id, 'minutes', parseInt(e.target.value, 10))}
-                              className={`${field} w-16 border-0`}
+                              value={task.minutes ?? ''}
+                              onChange={(e) => handleTaskChange(day, period, task.id, 'minutes', e.target.value)}
+                              className={`${field} w-16 border-0 ${parseMinutes(task.minutes) === null ? 'bg-[#FFE9E6] text-[#E5484D] ring-[3px] ring-[#E5484D]' : ''}`}
                               min="1"
+                              max="180"
+                              step="1"
                               aria-label="Minutos"
+                              aria-invalid={parseMinutes(task.minutes) === null || undefined}
+                              aria-describedby={parseMinutes(task.minutes) === null ? MINUTES_ERROR_ID : undefined}
                             />
                             <span className="text-xs font-extrabold text-[#9A866B]">min</span>
                           </span>
@@ -426,7 +445,12 @@ const DefaultRoutineEditor = ({ routines, onSave, onCancel }) => {
       </div>
 
       {/* Action Buttons */}
-      <div className="sticky bottom-0 flex justify-end gap-3 mt-8 pt-4 pb-2 border-t-2 border-[#F1E2C9] bg-white">
+      <div className="sticky bottom-0 flex flex-wrap items-center justify-end gap-3 mt-8 pt-4 pb-2 border-t-2 border-[#F1E2C9] bg-white">
+        {invalidMinutes.length > 0 && (
+          <div id={MINUTES_ERROR_ID} role="alert" className="mr-auto rounded-xl bg-[#FFE9E6] text-[#E5484D] font-extrabold px-3 py-2 shadow-[inset_0_0_0_2px_#E5484D]">
+            ⚠️ Duração inválida em {invalidMinutes.join(', ')}. {VALID_MINUTES_HINT} Corrija para poder salvar.
+          </div>
+        )}
         <button
           onClick={onCancel}
           className={white}
@@ -436,6 +460,8 @@ const DefaultRoutineEditor = ({ routines, onSave, onCancel }) => {
         <button
           onClick={handleSave}
           className={primary}
+          disabled={invalidMinutes.length > 0}
+          aria-describedby={invalidMinutes.length ? MINUTES_ERROR_ID : undefined}
         >
           Salvar Alterações
         </button>

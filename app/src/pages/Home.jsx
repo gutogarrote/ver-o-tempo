@@ -10,8 +10,8 @@ import { serializeRoutineUrl } from '../lib/routineUrl';
 import { buildPlanView, closingFor } from '../lib/routineView';
 import { MIN_MS, defaultPlan, extendDeadline, jumpTo, markSeq, restartPlan, toggleTaskDone } from '../lib/schedule';
 import {
-  END_STEP_MIN, NEW_TASK_MIN, deadlineStatus, draftTasks, insertTask, isDirty, moveItem, removeTask, savedTasks,
-  shiftClock, startDraft, stepMinutes, updateTask,
+  END_STEP_MIN, NEW_TASK_MIN, deadlineStatus, draftTasks, insertTask, invalidItems, isDirty, moveItem, removeTask, savedTasks,
+  shiftClock, startDraft, stepMinutes, typeMinutes, updateTask,
 } from '../lib/routineDraft';
 import catalog from '../lib/taskCatalog.json';
 
@@ -214,9 +214,11 @@ export default function Home({ routines, setRoutines, currentTime, initialRoutin
     setDraft(null);
   }
   // One write (storage + link, like the other editors), then the run continues from the saved
-  // routine with the same done marks, on the same schedule the preview showed.
+  // routine with the same done marks, on the same schedule the preview showed. Never with an
+  // invalid duration (Salvar is disabled then, and this guard keeps it so).
+  const invalid = editing ? invalidItems(draft) : [];
   function saveEdit() {
-    if (!editing) return;
+    if (!editing || invalid.length) return;
     if (dirty) {
       const nextTasks = savedTasks(draft);
       const markOf = (t, i) => draft.items[i].mark;
@@ -249,9 +251,11 @@ export default function Home({ routines, setRoutines, currentTime, initialRoutin
     onMove: (i, delta) => setDraft((d) => moveItem(d, i, delta)),
     onStep: (i, delta) => setDraft((d) => stepMinutes(d, i, delta)),
     onChange: (i, patch) => setDraft((d) => updateTask(d, i, patch)),
+    onMinutes: (i, text) => setDraft((d) => typeMinutes(d, i, text)),
+    invalid: invalid.map((it) => String(it.task.name || '').trim() || `Tarefa ${draft.items.indexOf(it) + 1}`),
     onInsert: (at, opener) => setDialog({ mode: 'insert', at, opener, where: whereLabel(at), seq: Date.now(),
       task: { name: '', icon: '✨', color: '#CCCCCC', minutes: NEW_TASK_MIN } }),
-    onDetails: (i, opener) => setDialog({ mode: 'details', i, opener, where: nameAt(i), seq: Date.now(), task: draft.items[i].task }),
+    onDetails: (i, opener) => setDialog({ mode: 'details', i, opener, where: nameAt(i), seq: Date.now(), task: draft.items[i].task, minutesText: draft.items[i].minutesText }),
     canEarlier: canShiftEnd(draft, -END_STEP_MIN),
     canLater: canShiftEnd(draft, END_STEP_MIN),
     onEarlier: () => shiftEnd(-END_STEP_MIN),

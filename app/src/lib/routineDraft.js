@@ -4,7 +4,11 @@
 //  - mark: the task's completion mark when editing started (its doneSeq, see markSeq), or
 //    undefined. It travels with the task through moves, duration changes and insertions,
 //    so done marks are never lost or moved to another task by an edit;
-//  - task: the routine task exactly as it will be saved;
+//  - task: the routine task exactly as it will be saved; task.minutes only ever receives a
+//    valid duration (an integer from 1 to MAX_TASK_MIN) from the edit controls;
+//  - minutesText: what is typed in the minutes field while it is NOT a valid duration
+//    ('', '0', '-1', '2.5', '181'…). The preview keeps the last valid minutes, and the draft
+//    cannot be saved until every duration is valid again (invalidItems);
 //  - left: minutes of it still to do when editing started (0 once done or behind the NOW
 //    line, what was left of the task in progress, all of it for the following ones), and
 //    running: it was the task in progress (its `left` keeps running down while editing).
@@ -17,6 +21,17 @@ export const MIN_TASK_MIN = 1;
 export const MAX_TASK_MIN = 180;
 export const END_STEP_MIN = 5;
 export const NEW_TASK_MIN = 5;
+
+// The one duration rule of every editor: a whole number of minutes from 1 to MAX_TASK_MIN.
+export const isValidMinutes = (m) => Number.isInteger(m) && m >= MIN_TASK_MIN && m <= MAX_TASK_MIN;
+// Typed text → minutes, or null when it is not a valid duration ('', '0', '-1', '2.5', '1e2'…).
+export function parseMinutes(text) {
+  const t = String(text ?? '').trim();
+  if (!/^\d+$/.test(t)) return null;
+  const m = Number(t);
+  return isValidMinutes(m) ? m : null;
+}
+export const VALID_MINUTES_HINT = `Use um número inteiro de ${MIN_TASK_MIN} a ${MAX_TASK_MIN} minutos.`;
 
 const minutesOf = (task) => {
   const m = Number(task?.minutes ?? task?.duration);
@@ -52,7 +67,8 @@ export function moveItem(draft, i, delta) {
 export function updateTask(draft, i, patch) {
   if (i < 0 || i >= draft.items.length) return draft;
   const items = draft.items.slice();
-  const it = items[i];
+  const { minutesText, ...it } = items[i];
+  if (!('minutes' in patch) && minutesText !== undefined) it.minutesText = minutesText;
   const task = { ...it.task, ...patch };
   const grew = Math.max(0, minutesOf(task)) - Math.max(0, minutesOf(it.task));
   const left = it.left === undefined ? undefined : it.mark === undefined && it.left > 0 ? Math.max(0, it.left + grew) : it.left;
@@ -65,7 +81,23 @@ export const canStep = (task, delta) => {
   return delta < 0 ? m > MIN_TASK_MIN : m < MAX_TASK_MIN;
 };
 
-// −1/+1 minute, never below 1 nor above the link limit.
+// Typing in the minutes field: a valid duration goes to the task; anything else is kept only
+// as text (the field shows it, marked invalid) until it is fixed, stepped or cancelled.
+export function typeMinutes(draft, i, text) {
+  if (i < 0 || i >= draft.items.length) return draft;
+  const m = parseMinutes(text);
+  if (m !== null) return updateTask(draft, i, { minutes: m });
+  const items = draft.items.slice();
+  items[i] = { ...items[i], minutesText: String(text ?? '') };
+  return { ...draft, items };
+}
+
+// Items whose duration cannot be saved: invalid text being typed, or invalid stored minutes
+// (e.g. 0 in data saved by an older version).
+export const invalidItems = (draft) => draft.items.filter((it) => it.minutesText !== undefined || !isValidMinutes(it.task.minutes));
+
+// −1/+1 minute, never below 1 nor above the link limit. From invalid text, it steps from the
+// last valid minutes (and the field shows a valid value again).
 export function stepMinutes(draft, i, delta) {
   const task = draft.items[i]?.task;
   if (!task || !canStep(task, delta)) return draft;
@@ -98,15 +130,18 @@ export function shiftClock(hhmm, deltaMin) {
   return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
 }
 
-// Tasks as saved: minutes as numbers (invalid → 0, as the previous editors did).
-export const savedTasks = (draft) => draft.items.map(({ task }) => {
-  const { duration, ...rest } = task;
-  return { ...rest, minutes: Number(rest.minutes) || 0 };
-});
+// Tasks as saved. Only for a draft without invalidItems: a duration is never turned into 0.
+export const savedTasks = (draft) => {
+  if (invalidItems(draft).length) throw new Error('Invalid task duration');
+  return draft.items.map(({ task }) => {
+    const { duration, ...rest } = task;
+    return rest;
+  });
+};
 
 export function isDirty(draft, tasks, endTime) {
   if (draft.endTime !== endTime || draft.items.length !== (tasks || []).length) return true;
-  return draft.items.some((it, i) => it.key !== `t${i}` || JSON.stringify(it.task) !== JSON.stringify(startDraft('', [tasks[i]], null, '').items[0].task));
+  return draft.items.some((it, i) => it.key !== `t${i}` || it.minutesText !== undefined || JSON.stringify(it.task) !== JSON.stringify(startDraft('', [tasks[i]], null, '').items[0].task));
 }
 
 // How the end time of the draft compares with what is left to do.
