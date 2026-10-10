@@ -14,6 +14,60 @@ function strictDecode(value, stage, entry) {
   catch (_) { fail(stage, 'malformed-percent-or-utf8', entry); }
 }
 
+// v2 wire escapes only punctuation; spaces use _, literal underscores are unsupported.
+// These unreserved sequences remain intact under percent/query normalization.
+const READABLE_ESCAPES = new Set(Array.from({ length: 95 }, (_, i) => String.fromCharCode(i + 32))
+  .filter(char => !/[A-Za-z0-9_ -]/.test(char)));
+export const READABLE_NAME_ERROR = 'O link legível reserva _ para espaços. Remova underscores literais e use texto Unicode válido nos nomes.';
+
+function validName(name) {
+  return typeof name === 'string' && name.trim() && name.length <= 80 &&
+    !Array.from(name).some(char => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127);
+}
+
+function encodeReadableName(name) {
+  if (name.includes('_') || !name.isWellFormed()) {
+    throw Object.assign(new Error(READABLE_NAME_ERROR), { linkMessage: READABLE_NAME_ERROR });
+  }
+  return Array.from(name, char => {
+    if (char === ' ') return '_';
+    if (READABLE_ESCAPES.has(char)) return '~' + char.charCodeAt(0).toString(16).toUpperCase();
+    return char;
+  }).join('');
+}
+
+function decodeReadableName(wire, entry) {
+  // Validate before expansion: escaped punctuation never becomes syntax or gets decoded again.
+  let name = '';
+  for (let i = 0; i < wire.length; i++) {
+    const char = wire[i];
+    if (char === '~') {
+      const hex = wire.slice(i + 1, i + 3);
+      const decoded = String.fromCharCode(parseInt(hex, 16));
+      if (!/^[0-9A-F]{2}$/.test(hex) || !READABLE_ESCAPES.has(decoded)) fail('custom-name', 'invalid-readable-escape', entry);
+      name += decoded;
+      i += 2;
+    } else if (char === '_') name += ' ';
+    else if (/[A-Za-z0-9-]/.test(char) || char.charCodeAt(0) >= 128) name += char;
+    else fail('custom-name', 'invalid-readable-name', entry);
+  }
+  if (!validName(name) || !name.isWellFormed()) fail('custom-name', 'invalid-name', entry);
+  return name;
+}
+
+function decodeReadableValue(raw) {
+  // A single bounded UTF-8 pass accepts percent bytes or literal Unicode. ASCII
+  // percent escapes (including %25) are outside v2, so nested decoding is never needed.
+  const value = raw.replace(/(?:%[0-9a-fA-F]{2})+/g, bytes => {
+    const decoded = strictDecode(bytes, 'readable-decode');
+    if (Array.from(decoded).some(char => char.charCodeAt(0) < 128)) fail('readable-decode', 'encoded-ascii');
+    return decoded;
+  });
+  if (value.includes('%')) fail('readable-decode', 'malformed-percent-or-utf8');
+  if (!value.isWellFormed()) fail('readable-decode', 'invalid-unicode');
+  return value;
+}
+
 function parseEndTime(time, stage = 'end-time') {
   if (!/^\d{4}$/.test(time) || Number(time.slice(0, 2)) > 23 || Number(time.slice(2)) > 59) fail(stage, 'invalid-clock');
   return time.slice(0, 2) + ':' + time.slice(2);
@@ -38,11 +92,12 @@ export function parseRoutineUrl(search, pathname = '/') {
     }
     if (values.length !== 1) fail('query', 'duplicate-routine');
     if (values[0].length > MAX_VALUE_LENGTH) fail('query', 'value-too-long');
-    const value = strictDecode(values[0].replace(/\+/g, ' '), 'outer-decode');
+    const readable = values[0].startsWith('2.');
+    const value = readable ? decodeReadableValue(values[0]) : strictDecode(values[0].replace(/\+/g, ' '), 'outer-decode');
     const legacy = value.includes('|');
     const parts = value.split(legacy ? '|' : '.');
     if (legacy && parts.length !== 3) fail('format', 'invalid-legacy-shape');
-    if (parts[0] !== '1') fail('format', 'unsupported-version');
+    if (parts[0] !== (readable ? '2' : '1')) fail('format', 'unsupported-version');
     if (!hasOwn(PERIODS, parts[1])) fail('format', 'invalid-period');
     let endTime;
     if (!legacy && /^\d{4}$/.test(parts[parts.length - 1])) endTime = parseEndTime(parts.pop());
@@ -62,8 +117,8 @@ export function parseRoutineUrl(search, pathname = '/') {
       if (total > 720) fail('duration', 'routine-too-long', index + 1);
       let definition;
       if (identity.startsWith('~')) {
-        if (!legacy && !/^~(?:[A-Za-z0-9_!~*'()]|%[0-9a-fA-F]{2})+$/.test(identity)) fail('custom-name', 'invalid-encoded-name', index + 1);
-        const name = strictDecode(identity.slice(1), 'custom-name-decode', index + 1);
+        if (!readable && !legacy && !/^~(?:[A-Za-z0-9_!~*'()]|%[0-9a-fA-F]{2})+$/.test(identity)) fail('custom-name', 'invalid-encoded-name', index + 1);
+        const name = readable ? decodeReadableName(identity.slice(1), index + 1) : strictDecode(identity.slice(1), 'custom-name-decode', index + 1);
         if (!name.trim() || name.length > 80 || Array.from(name).some(char => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)) fail('custom-name', 'invalid-name', index + 1);
         definition = { name, icon: '✨', color: '#CCCCCC' };
       } else {
@@ -91,15 +146,24 @@ export function parseRoutineUrl(search, pathname = '/') {
 // Names matching the catalog use short IDs; all others are literal text.
 // Colors/icons edited locally are intentionally not part of this configuration format.
 export function serializeRoutineUrl(baseUrl, period, tasks, endTime) {
+  return serializeVersion(baseUrl, period, tasks, endTime, true);
+}
+
+// Kept for exact v1 regression verification and existing integrations.
+export function serializeLegacyRoutineUrl(baseUrl, period, tasks, endTime) {
+  return serializeVersion(baseUrl, period, tasks, endTime, false);
+}
+
+function serializeVersion(baseUrl, period, tasks, endTime, readable) {
   const code = Object.keys(PERIODS).find(key => PERIODS[key] === period);
   if (!code || !Array.isArray(tasks)) throw new Error(URL_ERROR);
   const entries = tasks.map(task => {
-    if (!task || typeof task.name !== 'string' || !Number.isInteger(task.minutes)) throw new Error(URL_ERROR);
+    if (!task || typeof task.name !== 'string' || !Number.isInteger(task.minutes) || (readable && !validName(task.name))) throw new Error(URL_ERROR);
     const ids = task.catalogIds;
     if (ids && (!Array.isArray(ids) || !ids.length || ids.some(id => !hasOwn(catalog, id)))) throw new Error(URL_ERROR);
     const unchanged = ids && ids.map(id => catalog[id].name).join(' + ') === task.name;
     const id = unchanged ? ids.join('-') : Object.keys(catalog).find(key => catalog[key].name === task.name);
-    const custom = encodeURIComponent(task.name).replace(/\./g, '%2E').replace(/-/g, '%2D');
+    const custom = id ? '' : readable ? encodeReadableName(task.name) : encodeURIComponent(task.name).replace(/\./g, '%2E').replace(/-/g, '%2D');
     return `${id || '~' + custom}-${task.minutes}`;
   });
   const url = new URL(baseUrl);
@@ -114,7 +178,7 @@ export function serializeRoutineUrl(baseUrl, period, tasks, endTime) {
   }
   url.searchParams.delete('rotina');
   const other = url.searchParams.toString();
-  url.search = (other ? other + '&' : '') + 'rotina=' + encodeURIComponent(`1.${code}.${entries.join('.')}${suffix}`);
+  url.search = (other ? other + '&' : '') + 'rotina=' + (readable ? `2.${code}.${entries.join('.')}${suffix}` : encodeURIComponent(`1.${code}.${entries.join('.')}${suffix}`));
   if (parseRoutineUrl(url.search).status !== 'valid') throw new Error(URL_ERROR);
   return url.href;
 }

@@ -125,8 +125,8 @@ export default function Home({ routines, setRoutines, currentTime, initialRoutin
       const url = serializeRoutineUrl(window.location.href, routineId, saved?.tasks, saved?.endTime || '23:59');
       window.history.replaceState(window.history.state, '', url);
       setSaveError('');
-    } catch (_) {
-      setSaveError('Alterações salvas no aparelho, mas não foi possível atualizar o link. Confira nomes, tarefas, durações e horário nos limites do formato de URL.');
+    } catch (error) {
+      setSaveError('Alterações salvas no aparelho, mas não foi possível atualizar o link. Confira nomes, tarefas, durações e horário nos limites do formato de URL.' + (error.linkMessage ? ' ' + error.linkMessage : ''));
     }
     try {
       localStorage.setItem('routines', JSON.stringify(updated));

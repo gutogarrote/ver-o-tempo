@@ -1,5 +1,5 @@
 import fixture from './fixtures/fantasia-nina.json';
-import { parseRoutineUrl, serializeRoutineUrl } from './routineUrl';
+import { parseRoutineUrl, serializeLegacyRoutineUrl as serializeRoutineUrl } from './routineUrl';
 
 test('original fantasia regression keeps seven exact tasks, durations and deadline; removed layers still reject', () => {
   const search = new URL(fixture.url).search;
@@ -41,7 +41,7 @@ test.each([
   ['?rotina=1.n.~a%252Db-5', null, null],
   ['?rotina=1.n.ba-5&%72otina=1.n.ba-5', 'query', 'duplicate-routine'],
   ['?rotina=' + 'a'.repeat(6001), 'query', 'value-too-long'],
-  ['?rotina=2.n.ba-5', 'format', 'unsupported-version'],
+  ['?rotina=3.n.ba-5', 'format', 'unsupported-version'],
   ['?rotina=1.x.ba-5', 'format', 'invalid-period'],
   ['?rotina=1.n', 'entries', 'missing-tasks'],
   ['?rotina=1.n.ba-0', 'duration', 'invalid-minutes'],

@@ -1,5 +1,9 @@
 # Rotina por URL — versão 1
 
+Contrato de compatibilidade v1 preservado. Novos saves nesta proposta local usam
+[v2 legível, pendente de revisão/aprovação](url-rotina-v2.md). Os exemplos e o
+escaping abaixo descrevem somente v1; `serializeLegacyRoutineUrl` os reproduz.
+
 ## Gramática
 
 ```text

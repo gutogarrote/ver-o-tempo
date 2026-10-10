@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { execFileSync } from 'child_process';
 import catalog from './taskCatalog.json';
-import { applyRoutineUrl, parseRoutineUrl, serializeRoutineUrl } from './routineUrl';
+import { applyRoutineUrl, parseRoutineUrl, serializeLegacyRoutineUrl as serializeRoutineUrl } from './routineUrl';
 
 const query = value => '?rotina=' + encodeURIComponent(value);
 
