@@ -205,7 +205,7 @@ describe('done marks survive deadline changes and saves', () => {
     fireEvent.click(dot('Dentes'));
     openMenu();
     fireEvent.click(screen.getByRole('button', { name: '✏️ Editar esta rotina' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Save Routine' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
     expect(dot('Dentes')).toHaveAttribute('aria-pressed', 'true');
     expect(dot('Banho')).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByText('TERMINA 20:30')).toBeInTheDocument();

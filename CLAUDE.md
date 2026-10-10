@@ -9,7 +9,8 @@ qualquer implementador; AGENTS.md contém as convenções de contribuição.
   fallback público/embarcado e relógio por timestamp.
 - `pages/Home.jsx`: seleção manhã/noite, prazo, operações da sessão, editores e gravação.
 - `components/fita/RoutineTV.jsx`, `RoutinePhone.jsx`, `ParentMenu.jsx`, `theme.js`: UI aprovada.
-- `RoutineEditor.jsx`, `DefaultRoutineEditor.jsx`: editores; AudioAlerts permanece inativo.
+- `EditControls.jsx` + `lib/routineDraft.js`: modo de edição na tela principal (rascunho; Salvar/Cancelar);
+  `DefaultRoutineEditor.jsx`: editor completo (⚙️ Rotinas). AudioAlerts permanece inativo.
 - `lib/schedule.js`: agenda e operações; `routineView.js` e `trackLayout.js`: apresentação/geometria;
   `timeline.js`: helpers de horário; `routineUrl.js` e `taskCatalog.json`: contrato de links.
 - `public/routines.json` e `lib/defaultRoutines.json`: padrões semanticamente iguais,

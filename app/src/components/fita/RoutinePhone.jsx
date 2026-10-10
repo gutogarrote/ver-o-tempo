@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { C, FREDOKA, NUNITO, agoraColors, doneOverlay, hatch, statusStyle } from './theme';
 import { ribbonColumn } from '../../lib/trackLayout';
+import { EditBar, EditButton, EditTaskList, EndTime, EndTimeEditor, EndTimeNote, pillStyle } from './EditControls';
 
 export const PX_PER_MIN = 11;
 // Touch target of the completion dot; rows never get shorter than it, so short
@@ -104,7 +105,9 @@ function TaskRow({ t, i, first, early, v, height, onJump, onToggleDone }) {
   );
 }
 
-export default function RoutinePhone({ v, closing, clock, isMorning, onPick, onJump, onToggleDone, onExtend, onReset, badge }) {
+const footBtn = (font = 14) => pillStyle({ font, h: 44, padX: 14 });
+
+export default function RoutinePhone({ v, closing, clock, isMorning, onPick, onJump, onToggleDone, onExtend, onReset, badge, edit, onEdit, endLabel }) {
   const ot = v.overtime;
   const agora = agoraColors({ urgent: v.urgent, overtime: ot, color: v.current.color });
   // Done rows first (sized by max(planned, original) minutes), then the task in progress
@@ -138,12 +141,16 @@ export default function RoutinePhone({ v, closing, clock, isMorning, onPick, onJ
   return (
     <div style={{ width: '100%', height: '100dvh', boxSizing: 'border-box', background: C.bg, color: C.ink, fontFamily: NUNITO, display: 'flex', flexDirection: 'column', padding: '16px 14px 14px', gap: 10 }}>
 
-      {/* Header */}
+      {/* Header (edit mode: what is being edited, Cancelar and Salvar) */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-          {badge({ size: 34, radius: 12, fontSize: 18, shadow: 3 })}
-          <h1 style={{ margin: 0, fontFamily: FREDOKA, fontSize: 22, fontWeight: 600, whiteSpace: 'nowrap' }}>Rotina da Nina</h1>
+          {/* The menu is unavailable while editing (Home disables it); on the phone it makes room. */}
+          {!edit && badge({ size: 34, radius: 12, fontSize: 18, shadow: 3 })}
+          {edit
+            ? <h1 style={{ margin: 0, fontFamily: FREDOKA, fontSize: 20, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{isMorning ? '☀️' : '🌙'} Editando</h1>
+            : <h1 style={{ margin: 0, fontFamily: FREDOKA, fontSize: 'min(22px, 5.6vw)', fontWeight: 600, whiteSpace: 'nowrap' }}>Rotina da Nina</h1>}
         </div>
+        {edit ? <EditBar onCancel={edit.onCancel} onSave={edit.onSave} font={15} h={42} glyphs={false} /> : (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ display: 'flex', gap: 3, background: C.toggleBg, padding: 3, borderRadius: 999 }}>
             <IconToggle on={isMorning} onClick={() => onPick('morning')} label="Manhã">☀️</IconToggle>
@@ -151,9 +158,15 @@ export default function RoutinePhone({ v, closing, clock, isMorning, onPick, onJ
           </div>
           <div style={{ fontFamily: FREDOKA, fontSize: 26, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{clock}</div>
         </div>
+        )}
       </div>
 
-      {/* AGORA card */}
+      {/* AGORA card (hidden while editing: the rows show their times instead) */}
+      {edit ? (
+        <div style={{ font: `700 13px/1.3 ${NUNITO}`, color: C.muted, padding: '0 4px' }}>
+          ▲▼ mudam a ordem · −1/+1 ajustam minutos · + insere uma tarefa ali. Nada é gravado até <strong style={{ color: C.ink }}>Salvar</strong>.
+        </div>
+      ) : (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 9, background: agora.bg, border: `3px solid ${agora.border}`, borderRadius: 20, padding: '12px 13px', boxShadow: '0 4px 0 rgba(0,0,0,.06)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 54, height: 54, flex: 'none', borderRadius: 17, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30 / Math.sqrt(v.current.catalogIds?.length || 1), whiteSpace: 'nowrap', background: `${v.current.color}2e` }}>{v.current.icon}</div>
@@ -171,10 +184,16 @@ export default function RoutinePhone({ v, closing, clock, isMorning, onPick, onJ
           <div style={{ height: '100%', width: `${v.currentPct}%`, borderRadius: 999, background: agora.bar }} />
         </div>
       </div>
+      )}
 
-      {/* Scrolling vertical ribbon + pinned closing zone */}
+      {/* Scrolling vertical ribbon + pinned closing zone. While editing, the edit rows take the
+          ribbon's place (the ribbon stays mounted, hidden, so its size tracking survives). */}
       <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <div ref={trackRef} onScroll={onScroll} className="no-scrollbar" style={{ position: 'relative', flex: 1, minHeight: 0, borderRadius: 20, background: C.track, overflowY: 'auto', overflowX: 'hidden' }}>
+        {edit && (
+          <EditTaskList items={edit.items} blocks={v.blocks} timeLabel={edit.timeLabel} size="phone"
+            onMove={edit.onMove} onStep={edit.onStep} onChange={edit.onChange} onInsert={edit.onInsert} onDetails={edit.onDetails} />
+        )}
+        <div ref={trackRef} onScroll={onScroll} className="no-scrollbar" style={{ position: 'relative', flex: 1, minHeight: 0, borderRadius: 20, background: C.track, overflowY: 'auto', overflowX: 'hidden', display: edit ? 'none' : 'block' }}>
           <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: col.closeY + closeH }}>
             {col.rows.map((r, k) => (
               <TaskRow key={v.blocks[r.i].id ?? r.i} t={v.blocks[r.i]} i={r.i} first={k === 0} early={r.early} v={v} height={r.h} onJump={onJump} onToggleDone={onToggleDone} />
@@ -189,30 +208,40 @@ export default function RoutinePhone({ v, closing, clock, isMorning, onPick, onJ
               }}
             >
               <div style={{ fontSize: closingLit ? 30 : 24, lineHeight: 1, flex: 'none', opacity: closingLit ? 1 : 0.6 }}>{closing.icon}</div>
-              <div style={{ minWidth: 0 }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ font: `900 17px/1.1 ${NUNITO}`, color: ot ? '#fff' : closingLit ? C.ink : C.muted, textShadow: ot ? '0 1px 3px rgba(0,0,0,.3)' : 'none' }}>{closing.name}</div>
                 <div style={{ font: `700 13px ${NUNITO}`, whiteSpace: 'nowrap', color: ot ? 'rgba(255,255,255,.95)' : C.muted }}>{v.closeSub}</div>
               </div>
+              <EndTime label={endLabel} light={ot} caption="ÀS" />
             </div>
             {/* NOW: in the row of the task in progress, or in the closing row once the last task is over. */}
             <div data-testid="phone-now-line" style={{ position: 'absolute', zIndex: 3, left: 0, right: 0, top: nowY, height: 5, transform: 'translateY(-2px)', background: C.ink, borderRadius: 999, boxShadow: '0 0 0 2px rgba(255,246,233,.85)', pointerEvents: 'none' }} />
           </div>
         </div>
 
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 10, flex: 'none', boxSizing: 'border-box', borderRadius: 20, padding: '9px 11px', transition: 'background .4s',
-          background: ot ? hatch(closing.color, 14) : 'transparent',
-          border: `3px dashed ${ot ? '#fff' : 'rgba(154,134,107,.4)'}`,
+        {/* Final milestone, pinned: closing, end time of the routine and its controls. Normal use:
+            +5 min (this run only), ↺ Recomeçar in overtime, ✏️ to edit. Edit mode: −5/+5 move the
+            routine's end time. */}
+        <div data-testid="phone-final" style={{
+          display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 10, rowGap: 6, flex: 'none', boxSizing: 'border-box', borderRadius: 20, padding: '8px 10px', transition: 'background .4s',
+          background: ot && !edit ? hatch(closing.color, 14) : edit ? '#fff' : 'transparent',
+          border: `3px dashed ${ot && !edit ? '#fff' : 'rgba(154,134,107,.4)'}`,
         }}>
-          <div style={{ fontSize: ot ? 32 : 24, lineHeight: 1, flex: 'none', animation: 'bob 2.6s ease-in-out infinite', opacity: ot ? 1 : 0.5 }}>{closing.icon}</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ font: `900 ${ot ? 18 : 16}px/1.1 ${NUNITO}`, color: ot ? '#fff' : C.muted, textShadow: ot ? '0 1px 3px rgba(0,0,0,.3)' : 'none' }}>{closing.name}</div>
-            <div style={{ font: `700 13px ${NUNITO}`, whiteSpace: 'nowrap', color: ot ? 'rgba(255,255,255,.95)' : C.muted }}>{v.closeSub}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: '1 1 auto', minWidth: 0 }}>
+            <div style={{ fontSize: ot ? 30 : 24, lineHeight: 1, flex: 'none', animation: 'bob 2.6s ease-in-out infinite', opacity: ot || edit ? 1 : 0.5 }}>{closing.icon}</div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ font: `900 ${ot ? 17 : 15}px/1.1 ${NUNITO}`, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: ot && !edit ? '#fff' : C.muted, textShadow: ot && !edit ? '0 1px 3px rgba(0,0,0,.3)' : 'none' }}>{closing.name}</div>
+              <EndTime label={endLabel} light={ot && !edit} caption={edit ? 'FIM' : 'ÀS'} inline />
+            </div>
           </div>
-          <button onClick={onExtend} aria-label={`Mais 5 minutos até ${closing.name}`} style={{ flex: 'none', background: '#fff', color: C.ink, padding: '6px 12px', borderRadius: 999, border: 0, font: `900 14px ${NUNITO}`, whiteSpace: 'nowrap', cursor: 'pointer', boxShadow: '0 2px 0 rgba(0,0,0,.18)' }}>+5 min</button>
-          {ot && (
-            <button onClick={onReset} style={{ flex: 'none', background: '#fff', color: C.ink, padding: '6px 12px', borderRadius: 999, border: 0, font: `900 14px ${NUNITO}`, whiteSpace: 'nowrap', cursor: 'pointer', boxShadow: '0 2px 0 rgba(0,0,0,.18)' }}>↺ Recomeçar</button>
+          {edit ? <EndTimeEditor edit={edit} size="phone" /> : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 'none', marginLeft: 'auto' }}>
+              <button className="fita-btn" onClick={onExtend} aria-label={`Mais 5 minutos até ${closing.name}`} style={footBtn()}>+5 min</button>
+              {ot && <button className="fita-btn" onClick={onReset} style={footBtn()}>↺ Recomeçar</button>}
+              <EditButton onEdit={onEdit} label={false} />
+            </div>
           )}
+          {edit && <div style={{ flex: '1 1 100%' }}><EndTimeNote edit={edit} endLabel={endLabel} size="phone" /></div>}
         </div>
       </div>
 
