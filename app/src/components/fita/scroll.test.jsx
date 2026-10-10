@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import Home from '../../pages/Home';
-import { CLOSE_MIN_H, DOT_HIT, PX_PER_MIN } from './RoutinePhone';
+import { DOT_HIT, END_PAD, PX_PER_MIN } from './RoutinePhone';
 import { DONE_MIN_W, DOT, DOT_GAP, FADE_W, MANUAL_HOLD_MS, NOW_X, PX_PER_MIN as TV_PX_PER_MIN, RIBBON_W, WINDOW_MIN } from './RoutineTV';
 
 // marca-feito-scroll(-fix): blocks/rows follow the PLANNED (redistributed) minutes. TV: the
@@ -504,7 +504,7 @@ describe('phone: rows follow the redistributed minutes', () => {
   const rows = () => screen.getAllByTestId('phone-row');
   const heights = () => rows().map((r) => px(r.style.height));
   const order = () => rows().map((r) => Number(r.dataset.index));
-  const closingRow = () => screen.getByTestId('phone-closing');
+  const footer = () => screen.getByTestId('phone-final');
 
   test('marking a future task: it moves above the task in progress (sized by its minutes), NOW stays on the real geometry', () => {
     const { tick } = renderAt(at(19, 25), true);
@@ -546,25 +546,27 @@ describe('phone: rows follow the redistributed minutes', () => {
     expect(nowY()).toBeCloseTo(10 * PX_PER_MIN, 6);
   });
 
+  // Android feedback (#16/#24): the tall closing row inside the ribbon duplicated the pinned
+  // footer and was removed; the footer is the closing now. Same geometry otherwise: NOW
+  // reaches the end of the list exactly when the last task ends, never beyond its room.
   test.each([
     ['in progress', at(20, 25), false],
     ['deadline', at(20, 30), true],
     ['overtime', at(20, 52), true],
-  ])('closing row right after the last row (%s); NOW enters it when the last task ends', (_, now, inside) => {
+  ])('the list ends with the last row (%s); NOW reaches its end when the last task ends, the footer lights up', (_, now, inside) => {
     renderAt(now, true);
     const total = heights().reduce((a, b) => a + b, 0);
-    // eslint-disable-next-line testing-library/no-node-access -- Geometry requires the containing box/DOM order; jsdom has no layout or accessible equivalent.
-    expect(closingRow().previousSibling).toBe(rows()[4]);
-    expect(px(closingRow().style.height)).toBeGreaterThanOrEqual(CLOSE_MIN_H);
+    expect(screen.queryByTestId('phone-closing')).toBeNull();
     expect(nowY() >= total).toBe(inside);
-    expect(nowY()).toBeLessThanOrEqual(total + px(closingRow().style.height));
+    expect(nowY()).toBeLessThanOrEqual(total + END_PAD);
+    expect(footer().dataset.lit).toBe(inside ? 'true' : 'false');
   });
 
-  test('all done before the deadline: NOW goes straight into the closing row', () => {
+  test('all done before the deadline: NOW goes straight to the end of the list, the footer is lit', () => {
     renderAt(at(20, 0), true);
     for (const n of ['C', 'D', 'E']) fireEvent.click(dot(n));
     const total = heights().reduce((a, b) => a + b, 0);
-    expect(closingRow().dataset.lit).toBe('true');
+    expect(footer().dataset.lit).toBe('true');
     expect(nowY()).toBeCloseTo(total, 6);
   });
 });

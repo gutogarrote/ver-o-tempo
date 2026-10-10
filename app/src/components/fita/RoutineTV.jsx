@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { C, FREDOKA, NUNITO, agoraColors, doneOverlay, hatch, statusStyle } from './theme';
 import { ribbonTrack, spreadDots } from '../../lib/trackLayout';
 import { hhmm } from '../../lib/timeline';
+import { EditBar, EditButton, EditTaskList, EndTime, EndTimeEditor, EndTimeNote } from './EditControls';
 
 const STAGE_W = 1440;
 const STAGE_H = 810;
@@ -9,6 +10,8 @@ const PAD_X = 30;
 const CLOSE_W = 148;
 const RIBBON_GAP = 5;
 const RIBBON_H = 300;
+// While editing, the ribbon (a live preview) gives room to the edit rows below it.
+const RIBBON_H_EDIT = 220;
 // The stage never changes size (it is scaled as a whole), so the ribbon width is fixed.
 export const RIBBON_W = STAGE_W - 2 * PAD_X - CLOSE_W - RIBBON_GAP;
 export const DOT = 40;
@@ -84,7 +87,7 @@ function Pill({ on, onClick, children }) {
 // `early` (done ahead of time, no planned time left) adds a dashed frame. `elapsedW`: px of
 // the task in progress already behind the NOW marker (darkened); striped when that part is
 // drawn compressed to keep a task just marked done in sight (`squeezed`, see ribbonTrack).
-function TaskBlock({ t, i, v, width, radius, early, elapsedW, squeezed, onJump }) {
+function TaskBlock({ t, i, v, width, radius, early, elapsedW, squeezed, onJump, disabled }) {
   const ring = t.isCurrent && !v.overtime;
   if (width <= 0) return <div data-testid="tv-block" data-index={i} style={{ flex: 'none', width: 0 }} />;
   return (
@@ -103,9 +106,10 @@ function TaskBlock({ t, i, v, width, radius, early, elapsedW, squeezed, onJump }
     >
       <button
         onClick={() => onJump(i)}
+        disabled={disabled}
         aria-label={`Pular para ${t.name}`}
         title={`${t.name} — ${t.shownMinutes} min`}
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', background: 'transparent', border: 0, padding: 0, cursor: 'pointer', font: 'inherit' }}
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', background: 'transparent', border: 0, padding: 0, cursor: disabled ? 'default' : 'pointer', font: 'inherit', color: 'inherit' }}
       >
         <div
           data-testid={t.isCurrent ? 'tv-elapsed' : undefined}
@@ -135,17 +139,18 @@ export function dotCenters(items) {
 
 // The completion dot is a sibling of the block (no nested buttons), so tapping it never
 // starts the task. zIndex: painted over the NOW line/label, which may cross it.
-function CompletionDot({ t, i, left, zero, onToggleDone }) {
+function CompletionDot({ t, i, left, zero, onToggleDone, disabled }) {
   return (
     <button
       data-testid="tv-dot"
+      disabled={disabled}
       onClick={(e) => { e.stopPropagation(); onToggleDone(i); }}
       aria-pressed={t.done}
       aria-label={t.done ? `${t.name}: feita (desmarcar)` : `Marcar ${t.name} como feita`}
       title={t.done ? (zero ? `${t.name} — feita antes da hora` : 'Feita') : 'Marcar como feita'}
       style={{
         position: 'absolute', zIndex: 3, bottom: DOT_INSET, left: left - DOT / 2,
-        width: DOT, height: DOT, borderRadius: 999, padding: 0, cursor: 'pointer', boxSizing: 'border-box',
+        width: DOT, height: DOT, borderRadius: 999, padding: 0, cursor: disabled ? 'default' : 'pointer', boxSizing: 'border-box',
         display: 'flex', alignItems: 'center', justifyContent: 'center', font: `900 ${DOT * 0.6}px ${NUNITO}`,
         ...(t.done
           ? { background: '#fff', color: C.check, border: zero ? `4px solid ${t.color}` : 0, boxShadow: '0 3px 0 rgba(0,0,0,.15)' }
@@ -237,7 +242,7 @@ const fade = (side) => ({
   padding: '0 6px', boxSizing: 'border-box', font: `900 34px ${NUNITO}`, color: C.ink,
 });
 
-export default function RoutineTV({ v, closing, clock, startLabel, endLabel, isMorning, onPick, onJump, onToggleDone, onExtend, onReset, badge }) {
+export default function RoutineTV({ v, closing, clock, startLabel, endLabel, isMorning, onPick, onJump, onToggleDone, onExtend, onReset, badge, edit, onEdit }) {
   const scale = useStageScale();
   const ot = v.overtime;
   const agora = agoraColors({ urgent: v.urgent, overtime: ot, color: v.current.color });
@@ -275,14 +280,21 @@ export default function RoutineTV({ v, closing, clock, startLabel, endLabel, isM
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              {badge({ size: 58, radius: 20, fontSize: 30, shadow: 4 })}
+              {badge({ size: 58, radius: 20, fontSize: 26, shadow: 4, withLabel: true })}
               <h1 style={{ margin: 0, fontFamily: FREDOKA, fontSize: 42, fontWeight: 600, letterSpacing: -0.5, whiteSpace: 'nowrap' }}>Rotina da Nina</h1>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 22 }}>
-              <div style={{ display: 'flex', gap: 6, background: C.toggleBg, padding: 6, borderRadius: 999 }}>
-                <Pill on={isMorning} onClick={() => onPick('morning')}>☀️ Manhã</Pill>
-                <Pill on={!isMorning} onClick={() => onPick('evening')}>🌙 Noite</Pill>
-              </div>
+              {edit ? (
+                <>
+                  <div style={{ font: `600 28px ${FREDOKA}`, color: C.muted, whiteSpace: 'nowrap' }}>✏️ Editando {isMorning ? '☀️ Manhã' : '🌙 Noite'}</div>
+                  <EditBar onCancel={edit.onCancel} onSave={edit.onSave} blocked={edit.invalid.length > 0 || edit.noTasks} font={22} h={58} />
+                </>
+              ) : (
+                <div style={{ display: 'flex', gap: 6, background: C.toggleBg, padding: 6, borderRadius: 999 }}>
+                  <Pill on={isMorning} onClick={() => onPick('morning')}>☀️ Manhã</Pill>
+                  <Pill on={!isMorning} onClick={() => onPick('evening')}>🌙 Noite</Pill>
+                </div>
+              )}
               <div style={{ fontFamily: FREDOKA, fontSize: 46, fontWeight: 600, fontVariantNumeric: 'tabular-nums', letterSpacing: -1 }}>{clock}</div>
             </div>
           </div>
@@ -293,7 +305,7 @@ export default function RoutineTV({ v, closing, clock, startLabel, endLabel, isM
           </div>
 
           {/* Ribbon + closing zone */}
-          <div style={{ display: 'flex', alignItems: 'stretch', gap: RIBBON_GAP, height: RIBBON_H }}>
+          <div style={{ display: 'flex', alignItems: 'stretch', gap: RIBBON_GAP, height: edit ? RIBBON_H_EDIT : RIBBON_H }}>
             <div style={{ position: 'relative', flex: 'none', width: RIBBON_W }}>
               <div
                 ref={scroll.ref}
@@ -325,6 +337,7 @@ export default function RoutineTV({ v, closing, clock, startLabel, endLabel, isM
                       <div style={{ fontSize: closingLit ? 54 : 44, lineHeight: 1, animation: 'bob 2.6s ease-in-out infinite', opacity: closingLit ? 1 : 0.6 }}>{closing.icon}</div>
                       <div style={{ font: `900 21px/1.12 ${NUNITO}`, whiteSpace: 'nowrap', color: closingLit ? C.ink : C.muted }}>{closing.name}</div>
                       <div style={{ font: `800 17px ${NUNITO}`, whiteSpace: 'nowrap', color: C.muted }}>{v.closeSub}</div>
+                      <div style={{ font: `600 26px ${FREDOKA}`, whiteSpace: 'nowrap', color: closingLit ? C.ink : C.muted, fontVariantNumeric: 'tabular-nums' }}>às {endLabel}</div>
                     </div>
                   </div>
                   {ot && (
@@ -333,11 +346,11 @@ export default function RoutineTV({ v, closing, clock, startLabel, endLabel, isM
                   <div data-testid="tv-deadline" style={{ position: 'absolute', top: 0, bottom: 0, left: win.xOf(v.planEndMin) - 2, width: 0, borderLeft: `4px dashed ${C.muted}`, pointerEvents: 'none' }} />
                   {shown.map((it) => (
                     <div key={v.blocks[it.i].id ?? it.i} style={{ position: 'absolute', top: 0, bottom: 0, left: it.x, display: 'flex' }}>
-                      <TaskBlock t={v.blocks[it.i]} i={it.i} v={v} width={it.w} radius={it.i === firstShown ? '30px 0 0 30px' : 0} early={it.early} elapsedW={Math.min(it.w, Math.max(0, nowX - it.x))} squeezed={win.squeeze > 0} onJump={onJump} />
+                      <TaskBlock t={v.blocks[it.i]} i={it.i} v={v} width={it.w} radius={it.i === firstShown ? '30px 0 0 30px' : 0} early={it.early} elapsedW={Math.min(it.w, Math.max(0, nowX - it.x))} squeezed={win.squeeze > 0} onJump={onJump} disabled={!!edit} />
                     </div>
                   ))}
                   {shown.map((it, k) => (
-                    <CompletionDot key={v.blocks[it.i].id ?? it.i} t={v.blocks[it.i]} i={it.i} left={dots[k]} zero={it.early} onToggleDone={toggleDone} />
+                    <CompletionDot key={v.blocks[it.i].id ?? it.i} t={v.blocks[it.i]} i={it.i} left={dots[k]} zero={it.early} onToggleDone={toggleDone} disabled={!!edit} />
                   ))}
                 </div>
               </div>
@@ -366,20 +379,41 @@ export default function RoutineTV({ v, closing, clock, startLabel, endLabel, isM
               {more.right && <div data-testid="tv-more-right" style={fade('right')}>›</div>}
             </div>
 
-            {/* Controls of the closing. The closing itself (icon, name) lives only in the ribbon,
-                right after the last task, so it is never shown twice. */}
-            <div
-              data-testid="tv-closing-controls"
-              role="group"
-              aria-label={`Controles de ${closing.name}`}
-              style={{ flex: 'none', width: CLOSE_W, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}
-            >
-              <button onClick={onExtend} aria-label={`Mais 5 minutos até ${closing.name}`} style={ctrlBtn}>+5 min</button>
-              {ot && <button onClick={onReset} style={ctrlBtn}>↺ Recomeçar</button>}
+            {/* Controls of the closing, under the routine's end time. The closing itself (icon,
+                name) lives only in the ribbon, right after the last task, so it is never shown
+                twice. Edit mode: −5/+5 move the end time instead. */}
+            <div style={{ flex: 'none', width: CLOSE_W, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+              <EndTime label={endLabel} size="tv" caption="FIM" />
+              {edit ? <EndTimeEditor edit={edit} size="tv" /> : (
+                <div
+                  data-testid="tv-closing-controls"
+                  role="group"
+                  aria-label={`Controles de ${closing.name}`}
+                  style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}
+                >
+                  <button className="fita-btn" onClick={onExtend} aria-label={`Mais 5 minutos até ${closing.name}`} style={ctrlBtn}>+5 min</button>
+                  {ot && <button className="fita-btn" onClick={onReset} style={ctrlBtn}>↺ Recomeçar</button>}
+                </div>
+              )}
+              {!edit && <EditButton onEdit={onEdit} font={19} h={48} />}
             </div>
           </div>
 
-          {/* AGORA card + A seguir */}
+          {/* Edit mode: the rows to edit + what the end time means. Otherwise AGORA + A seguir. */}
+          {edit ? (
+            <div style={{ display: 'flex', gap: 18, flex: 1, minHeight: 0 }}>
+              <EditTaskList items={edit.items} blocks={v.blocks} timeLabel={edit.timeLabel} size="tv"
+                onMove={edit.onMove} onStep={edit.onStep} onChange={edit.onChange} onMinutes={edit.onMinutes} invalid={edit.invalid} noTasks={edit.noTasks} onInsert={edit.onInsert} onDetails={edit.onDetails} />
+              <div style={{ width: 430, flex: 'none', background: '#fff', borderRadius: 28, padding: '20px 22px', boxSizing: 'border-box', boxShadow: '0 6px 0 rgba(0,0,0,.06)', display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto' }}>
+                <div style={{ font: `900 16px ${NUNITO}`, letterSpacing: 3, color: C.muted }}>FIM DA ROTINA</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ fontSize: 44, lineHeight: 1 }}>{closing.icon}</div>
+                  <div style={{ fontFamily: FREDOKA, fontSize: 30, fontWeight: 600 }}>{closing.name} às {endLabel}</div>
+                </div>
+                <EndTimeNote edit={edit} endLabel={endLabel} size="tv" />
+              </div>
+            </div>
+          ) : (
           <div style={{ display: 'flex', gap: 18, flex: 1, minHeight: 0 }}>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: agora.bg, border: `4px solid ${agora.border}`, borderRadius: 28, padding: '20px 26px', boxSizing: 'border-box', boxShadow: '0 6px 0 rgba(0,0,0,.06)' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 22, flex: 'none' }}>
@@ -419,6 +453,7 @@ export default function RoutineTV({ v, closing, clock, startLabel, endLabel, isM
               ))}
             </div>
           </div>
+          )}
         </div>
       </div>
     </div>

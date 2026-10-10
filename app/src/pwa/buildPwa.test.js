@@ -39,3 +39,11 @@ test('a changed stable-name file changes the worker even if the hashed bundle st
   await writeFile(join(root, 'build/manifest.json'), '{"name":"changed"}');
   expect(await generate()).not.toBe(first);
 });
+
+test('documentation stays outside the app precache and does not change its version', async () => {
+  const first = await generate();
+  await mkdir(join(root, 'build/instrucoes'));
+  await writeFile(join(root, 'build/instrucoes/index.html'), 'complete static instructions');
+  await writeFile(join(root, 'build/instrucoes.md'), 'canonical markdown');
+  expect(await generate()).toBe(first);
+});

@@ -19,7 +19,7 @@ beforeEach(() => {
 });
 
 test.each([
-  ['Editar esta rotina', 'Save Routine'],
+  ['Editar esta rotina', 'Salvar'],
   ['Rotinas', 'Salvar Alterações'],
 ])('real editor %s keeps draft and storage intact while an update waits', (editor, save) => {
   const setRoutines = vi.fn();

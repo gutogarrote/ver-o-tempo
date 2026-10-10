@@ -37,7 +37,7 @@ test('URL beats local, selects evening, preserves morning and edits across ticks
   fireEvent.change(screen.getByDisplayValue('Banho'), { target: { value: 'Banho editado' } });
   fireEvent.change(screen.getByDisplayValue('15'), { target: { value: '12' } });
   fireEvent.click(screen.getAllByRole('button', { name: 'Mover tarefa para baixo' })[0]);
-  fireEvent.click(screen.getByRole('button', { name: 'Save Routine' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
   act(() => vi.advanceTimersByTime(3000));
   view.rerender(<App />);
   expect(screen.getByRole('button', { name: 'Pular para Banho editado' })).toBeInTheDocument();
@@ -171,7 +171,7 @@ test.each([false, true])('clean compound renders and survives editing on phone=%
   expect(stored().monday.evening.endTime).toBe('19:30');
   edit();
   fireEvent.change(screen.getByDisplayValue('5'), { target: { value: '7' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Save Routine' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
   expect(stored().monday.evening.tasks[0]).toMatchObject({ minutes: 7, catalogIds: ['ma', 'de'], icon: '🧼🪥' });
   delete window.matchMedia;
 });
@@ -213,7 +213,7 @@ test('required example saves exact URL, preserves storage/history and reload rep
   edit();
   for (let i = 0; i < 2; i++) fireEvent.click(screen.getAllByRole('button', { name: 'Mover tarefa para cima' })[3 - i]);
   fireEvent.change(screen.getAllByRole('spinbutton')[2], { target: { value: '10' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Save Routine' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
   expect(window.location.href).toBe(window.location.origin + '/?rotina=2.n.ma-5.ja-25.co-10.ba-20.ma-de-5.2040');
   expect(replace).toHaveBeenCalledTimes(1);
   expect(window.history.state).toEqual({ keep: true });
@@ -240,7 +240,7 @@ test.each(['0900', '2045'])('save from /%s produces complete query with custom n
   await screen.findByRole('button', { name: 'Pular para ' + name });
   edit();
   fireEvent.change(screen.getByDisplayValue(name), { target: { value: 'Água. música-quente + 50%' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Save Routine' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
   expect(stored().monday[otherPeriod]).toEqual(customOther);
   expect(stored().sunday).toEqual(defaults.monday);
   expect(localStorage.getItem('unrelated')).toBe('keep');
@@ -290,16 +290,27 @@ test('explicit endTime save updates URL while jumps and deadline draft do not', 
   expect(stored().monday.evening.endTime).toBe('20:45');
 });
 
-test('unrepresentable edit saves locally and reports link failure', async () => {
+// Updated for issue #26: a duration must be a whole number from 1 to 180 minutes, so a typed
+// 0 is no longer saved locally (previously it was, and only the link update failed). The
+// "saved locally, link not updated" contract is still covered by the literal underscore test.
+test('zero duration cannot be saved (formerly: unrepresentable edit saves locally and reports link failure)', async () => {
   open('?rotina=1.n.ba-5.2040');
   render(<App />);
   await screen.findByRole('button', { name: 'Pular para Banho' });
+  const before = localStorage.getItem('routines');
   edit();
   fireEvent.change(screen.getByDisplayValue('5'), { target: { value: '0' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Save Routine' }));
-  expect(stored().monday.evening.tasks[0].minutes).toBe(0);
+  expect(screen.getByRole('button', { name: 'Salvar' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+  expect(localStorage.getItem('routines')).toBe(before);
+  expect(stored().monday.evening.tasks[0].minutes).toBe(5);
   expect(window.location.search).toBe('?rotina=1.n.ba-5.2040');
-  expect(screen.getByRole('alert')).toHaveTextContent('não foi possível atualizar o link');
+  expect(screen.getByRole('alert')).toHaveTextContent('Duração inválida em Banho');
+  fireEvent.change(screen.getByDisplayValue('0'), { target: { value: '6' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+  expect(stored().monday.evening.tasks[0].minutes).toBe(6);
+  expect(window.location.search).toBe('?rotina=2.n.ba-6.2040');
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });
 
 test('full editor on shortcut preserves untouched local periods/days while saving selected period', async () => {
@@ -351,7 +362,7 @@ test.each([false, true])('integrated URL + completion: marks follow task identit
     fireEvent.click(screen.getAllByRole('button', { name: 'Mover tarefa para cima' })[1]);
     fireEvent.change(screen.getByDisplayValue('Banho'), { target: { value: 'Banho. quentinho-50%' } });
     fireEvent.change(screen.getByDisplayValue('25'), { target: { value: '30' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save Routine' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
     expect(screen.getByRole('button', { name: 'Banho. quentinho-50%: feita (desmarcar)' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: 'Lavar as mãos + Escovar os dentes: feita (desmarcar)' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: 'Marcar Jantar como feita' })).toHaveAttribute('aria-pressed', 'false');
@@ -387,14 +398,14 @@ test.each([false, true])('literal underscore save is explicit, local and recover
   fireEvent.click(screen.getByRole('button', { name: 'Menu dos pais' }));
   fireEvent.click(screen.getByRole('button', { name: fullEditor ? /Rotinas/ : /Editar esta rotina/ }));
   fireEvent.change(screen.getByDisplayValue('pré-treino'), { target: { value: 'literal_underscore' } });
-  fireEvent.click(screen.getByRole('button', { name: fullEditor ? 'Salvar Alterações' : 'Save Routine' }));
+  fireEvent.click(screen.getByRole('button', { name: fullEditor ? 'Salvar Alterações' : 'Salvar' }));
   expect(stored().monday.evening.tasks[0].name).toBe('literal_underscore');
   expect(window.location.search).toBe('?rotina=2.n.~pr%C3%A9-treino-5.2030');
   expect(screen.getByRole('alert')).toHaveTextContent('reserva _ para espaços');
   fireEvent.click(screen.getByRole('button', { name: 'Menu dos pais' }));
   fireEvent.click(screen.getByRole('button', { name: fullEditor ? /Rotinas/ : /Editar esta rotina/ }));
   fireEvent.change(screen.getByDisplayValue('literal_underscore'), { target: { value: 'literal underscore' } });
-  fireEvent.click(screen.getByRole('button', { name: fullEditor ? 'Salvar Alterações' : 'Save Routine' }));
+  fireEvent.click(screen.getByRole('button', { name: fullEditor ? 'Salvar Alterações' : 'Salvar' }));
   expect(window.location.search).toBe('?rotina=2.n.~literal_underscore-5.2030');
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });

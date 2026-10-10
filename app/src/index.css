@@ -36,3 +36,15 @@ body {
 
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+/* Buttons of the parents' controls (edit mode, menu, closing): pressed, keyboard focus and
+   disabled states on top of the inline styles. */
+.fita-btn { transition: transform .08s ease, filter .15s ease; -webkit-tap-highlight-color: transparent; }
+.fita-btn:not(:disabled):hover { filter: brightness(.97); }
+.fita-btn:not(:disabled):active { transform: translateY(1px) scale(.97); filter: brightness(.93); }
+.fita-btn:focus-visible { outline: 3px solid #2A2118; outline-offset: 2px; }
+.fita-btn:disabled { cursor: not-allowed; }
+input[type=number].no-spin::-webkit-inner-spin-button,
+input[type=number].no-spin::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.fita-menu-item:hover, .fita-menu-item:focus-visible { background: #FFF6E9 !important; }
+input[type=number].no-spin { -moz-appearance: textfield; appearance: textfield; }

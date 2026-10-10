@@ -167,3 +167,16 @@ test('canonical shell normalizes a redirected cached index for navigation redire
   expect(response.headers.get('Content-Type')).toBe('text/html');
   expect(await response.text()).toBe('shell after index redirect');
 });
+
+
+test.each(['/instrucoes', '/instrucoes/', '/instrucoes/index.html', '/instrucoes.md'])('documentation %s bypasses the app shell for navigation and fetch', path => {
+  const env = worker();
+  expect(env.request(path, { mode: 'navigate' })).toBeUndefined();
+  expect(env.request(path)).toBeUndefined();
+  expect(env.fetch).not.toHaveBeenCalled();
+});
+
+test('0630 shortcut still receives the pinned application shell', async () => {
+  const env = worker();
+  expect(await (await env.request('/0630', { mode: 'navigate' })).text()).toBe('shell v2');
+});
