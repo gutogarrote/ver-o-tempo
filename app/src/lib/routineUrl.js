@@ -48,17 +48,17 @@ export function parseRoutineUrl(search, pathname = '/') {
       if (minutes > 180 || total > 720) throw new Error();
       let definition;
       if (identity.startsWith('~')) {
-        // Accept double percent-encoded names and pre-decoded names, but reject malformed escapes.
+        // Accept decoded UTF-8 and emojis, while retaining strict percent-escape validation.
         const raw = identity.slice(1);
+        if (/%(?![0-9a-fA-F]{2})/.test(raw)) throw new Error();
         let name;
         try {
           name = decodeURIComponent(raw);
         } catch (_) {
-          // Percent bytes that failed decoding are malformed, not pre-decoded text.
-          if (/%(?:[0-9a-fA-F]{2})?/.test(raw)) throw new Error();
+          // Valid percent syntax that is not valid UTF-8 is malformed encoded input.
+          if (/%[0-9a-fA-F]{2}/.test(raw)) throw new Error();
           name = raw;
         }
-        if (/%(?![0-9a-fA-F]{2})/.test(raw)) throw new Error();
         if (!name.trim() || name.length > 80 || Array.from(name).some(char => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)) throw new Error();
         definition = { name, icon: '✨', color: '#CCCCCC' };
       } else {
