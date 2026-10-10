@@ -8,11 +8,8 @@
 - Desmarcar qualquer tarefa preserva as outras marcas manuais; elapsed automático é calculado pelo horário.
 - TV usa fita horizontal; celular usa lista vertical com acompanhamento e rolagem manual.
 - Editores salvam configuração em localStorage e atualizam o link sem reload.
-- Proposta local issue 19: saves geram URLs legíveis v2, com leitura v1 preservada;
-  [gramática, restrições e limites de transporte](docs/url-rotina-v2.md).
-  Pendente de revisão Hermes/aprovação do formato e teste Android físico; sem publicação.
-- URL: contrato detalhado em [docs/url-rotina.md](docs/url-rotina.md); não alterar parser,
-  precedência, atalhos ou conteúdo padrão como parte da manutenção da fase 2.
+- URLs novas usam v2 implementada, com leitura v1 preservada; [instruções oficiais](docs/url-rotina-v2.md) incluem catálogo completo, gramática e exemplos.
+- O build gera `/instrucoes` estática e `/instrucoes.md` da mesma fonte canônica, sem JS para leitura; documentação fica fora do shell offline do PWA. O parser, precedência, atalhos e conteúdo padrão permanecem iguais.
 - Configuração persistente por origem; sessão volátil; sem sincronização entre aparelhos.
 - Sons inativos, sem backend, notificações ou deploy remoto executado.
 - Fase 4: PWA instalável com ícones próprios, manifest raiz e fontes locais licenciadas;

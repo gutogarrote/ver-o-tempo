@@ -127,7 +127,9 @@ As mudanças ficam guardadas **no próprio aparelho**, no navegador. Ao salvar (
 
 ### Configuração por URL
 
-Abra um link como `/?rotina=1.n.ba-20.ja-25.ma-de-5.1930` para carregar tarefas simples ou combinadas, ordem, minutos e final opcional. Os atalhos `/0720` e `/1930` abrem o padrão da manhã/noite com esse horário final. Consulte o [guia completo para gerar links de rotina](docs/url-rotina.md), com catálogo, exemplos e regras de edição e recarga.
+Novos links usam **v2**, já implementada: [abrir uma rotina de noite](https://ver-o-tempo.ggarrote.workers.dev/?rotina=2.n.ba-20.ja-25.ma-de-5.1930) carrega banho (20 min), jantar (25 min), mãos + dentes (5 min) e final às 19:30. Consulte as [instruções oficiais completas](docs/url-rotina-v2.md), com todos os IDs atuais, limites, escapes, exemplos e um prompt autossuficiente para qualquer IA. Links gerados devem explicitar o horário final, salvo pedido pelos padrões.
+
+O build gera a [página humana `/instrucoes`](https://ver-o-tempo.ggarrote.workers.dev/instrucoes) e o [Markdown `/instrucoes.md`](https://ver-o-tempo.ggarrote.workers.dev/instrucoes.md) da mesma fonte; a página contém o texto inteiro sem precisar executar JavaScript. Links v1 continuam aceitos; seu [guia de compatibilidade](docs/url-rotina.md) descreve somente o formato legado. Os atalhos `/0630`, `/0720` e `/1930` abrem tarefas padrão da manhã/noite com esse horário final.
 
 ### Dicas para funcionar melhor
 - **Comece com poucas tarefas.** Quatro ou cinco já fazem diferença. Dá para aumentar depois.
@@ -301,6 +303,4 @@ Na fase 3 não havia PWA/service worker; a fase 4 adiciona os recursos descritos
 Não há migração/exportação, backend, storage remoto ou telemetria. Não versionar tokens, segredos,
 `.dev.vars`, `.wrangler/` ou o build.
 
-Proposta local issue 19: [URLs legíveis v2](docs/url-rotina-v2.md), com leitura v1
-preservada. Formato pendente de revisão/aprovação; teste Telegram Android físico
-ainda necessário antes de concluir a issue.
+O formato canônico de novos links é [v2](docs/url-rotina-v2.md), com leitura v1 preservada. As instruções estáticas são produzidas pelo build, sem dependências adicionais; permanecem fora do shell offline do PWA. A tarefa 29 prepara esses assets para a publicação por Hermes, sem executar deploy neste worktree. Verificação em Android físico permanece fora da evidência local.

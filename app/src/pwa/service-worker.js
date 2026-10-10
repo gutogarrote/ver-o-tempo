@@ -79,6 +79,8 @@ self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
   if (development || request.method !== 'GET' || url.origin !== self.location.origin) return;
+  // Documentation must remain a real static response, never the application shell.
+  if (['/instrucoes', '/instrucoes/', '/instrucoes/index.html', '/instrucoes.md'].includes(url.pathname)) return;
   if (request.mode === 'navigate') {
     // No route/query is a cache key: custom routines stay entirely in the client.
     event.respondWith(shell(request));

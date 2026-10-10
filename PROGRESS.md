@@ -1,6 +1,16 @@
 # Progresso — Rotina da Nina
 
-## Proposta local issue 19 (2026-10-10)
+## Instruções oficiais v2 — tarefa 29 (2026-10-10)
+
+V2 já implementada passa a ter guia autossuficiente em `docs/url-rotina-v2.md`,
+fonte única de `/instrucoes` e `/instrucoes.md` gerados pelo build. Catálogo atual
+completo, limites, escapes, exemplos conferidos pelo parser e prompt para agentes.
+V1 permanece referência de compatibilidade. Sem novos IDs ou gerador/editor.
+Documentação estática independe de JS e fica fora do shell/cache offline; somente
+suas rotas deixam de ser interceptadas pelo PWA. Publicação e verificação final
+cabem a Hermes; este trabalho não executa push, deploy, merge ou PR.
+
+## Histórico: proposta local issue 19 (2026-10-10)
 
 Formato legível v2 para salvar URLs: `_` representa espaço, hífen permanece no nome,
 `~HH` escapa pontuação ASCII, Unicode é encoded uma vez. IDs/durações/HHMM continuam

@@ -1,7 +1,7 @@
 # Rotina por URL — versão 1
 
-Contrato de compatibilidade v1 preservado. Novos saves nesta proposta local usam
-[v2 legível, pendente de revisão/aprovação](url-rotina-v2.md). Os exemplos e o
+Contrato de compatibilidade v1 preservado. Novos links e saves usam
+[v2 oficial e completa](url-rotina-v2.md). Este guia serve apenas para compatibilidade v1. Os exemplos e o
 escaping abaixo descrevem somente v1; `serializeLegacyRoutineUrl` os reproduz.
 
 ## Gramática
@@ -129,8 +129,8 @@ e o fragmento são preservados; salvar uma rotina mantém as outras rotinas loca
 e outras chaves do storage.
 
 Exemplo: abra `http://localhost:3001/?rotina=1.n.ma-5.co-5.ba-20.ja-25.ma-de-5.2040`,
-mova Jantar para segundo, mude Fazer cocô para 10 minutos e salve. Copie
-`http://localhost:3001/?rotina=1.n.ma-5.ja-25.co-10.ba-20.ma-de-5.2040`.
+mova Jantar para segundo, mude Fazer cocô para 10 minutos e salve. Ao salvar, copie o novo link v2
+`http://localhost:3001/?rotina=2.n.ma-5.ja-25.co-10.ba-20.ma-de-5.2040`.
 O final continua **20:40**, inclusive após recarregar.
 
 Edições locais fora dos limites do formato continuam salvas no aparelho, com
@@ -138,10 +138,7 @@ aviso de que o link não foi atualizado. Nesse caso a URL anterior não represen
 a edição; ajuste os valores e salve novamente antes de copiar.
 Parâmetros irrelevantes e fragmento são ignorados/preservados pelo gerador.
 
-CRA serve os caminhos pelo fallback SPA no `npm start`. Em hospedagem estática,
-configure rewrite de caminhos para `/index.html` com status 200, preservando
-assets reais. Não há servidor de produção neste repositório; a configuração
-desse rewrite depende da hospedagem. Refresh direto é validado no servidor CRA.
+Vite atende o desenvolvimento; Cloudflare Workers Static Assets usa fallback SPA com HTTP 200, preservando assets reais. As instruções estáticas são geradas no build.
 
 ## Exemplos abríveis
 
@@ -186,7 +183,7 @@ name = quote('Água. música-quente', safe="~!*'()_").replace('.', '%2E').replac
 print(link('1.n.~' + name + '-5'))
 ```
 
-API: `serializeRoutineUrl(baseUrl, period, tasks, endTime?)`, período
+API de compatibilidade: `serializeLegacyRoutineUrl(baseUrl, period, tasks, endTime?)`, período
 `morning`/`evening`, tarefas `{name, minutes, catalogIds?}`, horário `HH:MM`.
 Parser `parseRoutineUrl(search, pathname='/')` retorna `absent`, `invalid` ou
 `valid`, com `source` query/path. `catalogIds` preserva combinações e repetições
@@ -196,8 +193,7 @@ Para repetir ontem, guarde e reabra a URL: não há histórico global por data.
 
 Compatibilidade isolada: links antigos `1|n|ba:15,ja:20` continuam aceitos,
 com nomes customizados escapados internamente e query escapada externamente.
-Não aceitam combinações nem horário opcional. Toda serialização nova usa pontos
-e hífens. Encoding inválido, versão/ID desconhecidos, duplicação de parâmetro,
+Não aceitam combinações nem horário opcional. A serialização legada usa pontos e hífens; novos saves geram v2. Encoding inválido, versão/ID desconhecidos, duplicação de parâmetro,
 limites excedidos ou tarefa inválida rejeitam toda a lista, nunca importam parcial.
 
 Os testes executam TODOS os links, os blocos JS/Python e usam o parser real.
@@ -205,6 +201,6 @@ Os testes executam TODOS os links, os blocos JS/Python e usam o parser real.
 ```bash
 cd app
 npm ci
-CI=true npm test -- --watchAll=false --runInBand
+npm test -- --run
 npm run build
 ```

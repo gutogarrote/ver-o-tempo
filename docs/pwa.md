@@ -42,7 +42,7 @@ não compartilham dados. Uma instalação pode ter um contexto de armazenamento 
 do navegador, conforme a plataforma; abra o link desejado nesse contexto para configurá-la.
 Não há backend, login, sincronização ou migração/exportação. Conclusões e ajustes da sessão
 continuam somente em memória; recarregar reinicia a sessão. URLs normais preservam a
-precedência e limites do [contrato existente](url-rotina.md).
+precedência e limites do [contrato v2 oficial](url-rotina-v2.md).
 
 O navegador pode remover caches/dados por falta de espaço ou política própria. Limpar
 os dados do site ou desinstalar pode remover rotinas; o app não faz essa limpeza. A garantia
@@ -175,3 +175,13 @@ aposentadoria disponível para clientes que retornem mais tarde. Sem fetch handl
 novas navegações usam a rede. Não limpe localStorage ou recarregue abas no script de
 aposentadoria. As abas existentes podem salvar antes de fechar/recarregar. A remoção
 do worker encerra a garantia offline; não foi executada nem validada remotamente aqui.
+
+## Instruções estáticas
+
+`/instrucoes` (e sua barra final) e `/instrucoes.md` são documentação gerada da
+mesma fonte `docs/url-rotina-v2.md`. Não entram no precache nem no shell da
+aplicação: o SW deixa essas requisições para a rede, evitando erro de parser
+em navegadores controlados. Não há promessa de leitura offline das instruções.
+Atalhos como `/0630` e links de rotina mantêm o comportamento offline anterior.
+Um SW antigo pode ainda entregar a SPA nessas rotas até o usuário aceitar a
+atualização; não há atualização forçada.
