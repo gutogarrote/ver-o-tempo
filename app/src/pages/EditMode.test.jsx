@@ -450,14 +450,15 @@ describe.each([false, true])('edit mode (phone: %s)', (phone) => {
 });
 
 describe('final time and menu badge', () => {
-  test('phone: the final milestone (pinned and in the ribbon) shows the end time', () => {
+  // The ribbon's own closing row was removed (Android feedback #16/#24: it duplicated the
+  // footer); the pinned footer is the final milestone.
+  test('phone: the final milestone (pinned footer) shows the end time', () => {
     renderHome({ phone: true });
     expect(screen.getByTestId('phone-final')).toHaveTextContent('Hora de dormir');
     expect(screen.getByTestId('phone-final')).toHaveTextContent('20:30');
-    expect(screen.getByTestId('phone-closing')).toHaveTextContent('20:30');
+    expect(screen.queryByTestId('phone-closing')).toBeNull();
     fireEvent.click(btn('Mais 5 minutos até Hora de dormir'));
     expect(screen.getByTestId('phone-final')).toHaveTextContent('20:35');
-    expect(screen.getByTestId('phone-closing')).toHaveTextContent('20:35');
   });
 
   test('TV: end time above +5 min and in the closing; ☰ Menu instead of ✨', () => {

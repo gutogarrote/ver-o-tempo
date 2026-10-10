@@ -8,7 +8,7 @@ function reloadSafely(reload, onError) {
   catch (_) { onError('Não foi possível atualizar com segurança. Suas rotinas permanecem salvas; tente novamente após reabrir o app.'); }
 }
 
-export default function PwaUpdateNotice({ editing, reload = reloadPage }) {
+export default function PwaUpdateNotice({ editing, reload = reloadPage, inline = false }) {
   const [waiting, setWaiting] = useState(null);
   const [ready, setReady] = useState(false);
   const [applying, setApplying] = useState(false);
@@ -48,7 +48,8 @@ export default function PwaUpdateNotice({ editing, reload = reloadPage }) {
   }
 
   if (dismissed || (!waiting && !ready && !error)) return null;
-  const position = editing ? 'relative mx-3 mt-3 md:mx-auto' : 'fixed bottom-3 left-3 right-3 mx-auto';
+  // `inline`: inside the phone screen, where a fixed notice would cover the final footer.
+  const position = editing || inline ? 'relative mx-3 mt-3 md:mx-auto' : 'fixed bottom-3 left-3 right-3 mx-auto';
   return (
     <aside role="status" className={`${position} z-50 max-w-xl rounded-xl border border-amber-300 bg-[#FFF6E9] p-3 text-[#2A2118] shadow-lg`}>
       <p>{error || 'Nova versão disponível. Atualizar recarrega esta aba e reinicia a sessão; suas rotinas salvas permanecem.'}</p>

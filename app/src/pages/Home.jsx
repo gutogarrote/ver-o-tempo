@@ -14,11 +14,53 @@ import {
   shiftClock, startDraft, stepMinutes, typeMinutes, updateTask,
 } from '../lib/routineDraft';
 import catalog from '../lib/taskCatalog.json';
+import factoryRoutines from '../lib/defaultRoutines.json';
 
 // Phones and portrait screens get the vertical ribbon (2a); landscape gets the TV stage (1a).
 const PHONE_QUERY = '(max-width: 767px), (max-aspect-ratio: 1/1)';
 const EMPTY_TASKS = [];
 const taskKey = (t, i) => (t && t.id != null ? `id:${t.id}` : `#${i}`);
+const PERIOD_LABEL = { morning: 'da manhã', evening: 'da noite' };
+
+// Data saved by an earlier version may lack a period (its "Excluir rotina" removed it) or
+// keep one without tasks. The screen then shows the app's original default for that period
+// (in memory only: storage is untouched until the parents save), never an empty routine.
+const needsRepair = (r) => !r || !Array.isArray(r.tasks) || r.tasks.length === 0;
+function repairDay(day, todayKey) {
+  const factory = factoryRoutines[todayKey] || {};
+  const out = { ...(day || {}) };
+  for (const period of Object.keys(factory)) if (needsRepair(out[period])) out[period] = factory[period];
+  return out;
+}
+
+// Height of the window the page is shown in, for the phone layout. innerHeight is the area
+// the browser actually leaves to the page (without its toolbars or the system bars), so the
+// phone screen never extends below them, whatever 100vh/100dvh resolve to on that browser.
+function useWindowHeight(active) {
+  const [h, setH] = useState(() => window.innerHeight || 0);
+  useEffect(() => {
+    if (!active) return undefined;
+    const read = () => setH(window.innerHeight || 0);
+    read();
+    const vv = window.visualViewport;
+    window.addEventListener('resize', read);
+    window.addEventListener('orientationchange', read);
+    vv?.addEventListener('resize', read);
+    // The page itself never scrolls on the phone: only the task list does.
+    const html = document.documentElement;
+    const before = [html.style.overflow, document.body.style.overflow, html.style.overscrollBehavior];
+    html.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    html.style.overscrollBehavior = 'none';
+    return () => {
+      window.removeEventListener('resize', read);
+      window.removeEventListener('orientationchange', read);
+      vv?.removeEventListener('resize', read);
+      [html.style.overflow, document.body.style.overflow, html.style.overscrollBehavior] = before;
+    };
+  }, [active]);
+  return h;
+}
 
 function useIsPhone() {
   const [isPhone, setIsPhone] = useState(() => window.matchMedia?.(PHONE_QUERY).matches ?? false);
@@ -32,12 +74,13 @@ function useIsPhone() {
   return isPhone;
 }
 
-export default function Home({ routines, setRoutines, currentTime, initialRoutineId = 'morning' }) {
+export default function Home({ routines, setRoutines, currentTime, initialRoutineId = 'morning', notice = null }) {
   // Map routines to morning/evening for today (using 'monday' as in current data)
   const todayKey = 'monday';
-  const available = routines?.[todayKey] || {};
+  const available = useMemo(() => repairDay(routines?.[todayKey], todayKey), [routines, todayKey]);
 
   const [routineId, setRoutineId] = useState(initialRoutineId);
+  const recovered = needsRepair(routines?.[todayKey]?.[routineId]) && !!available[routineId];
   const routine = available[routineId] || { name: 'Rotina', tasks: [] };
 
   const tasks = routine.tasks || EMPTY_TASKS;
@@ -82,10 +125,11 @@ export default function Home({ routines, setRoutines, currentTime, initialRoutin
   // Edit states. The full editor ("Rotinas") replaces the screen; the edit mode keeps it and
   // works on a draft (see lib/routineDraft) that only Salvar persists and Cancelar drops.
   const [isEditingDefaults, setIsEditingDefaults] = useState(false);
+  const windowH = useWindowHeight(isPhone && !isEditingDefaults);
   const [draft, setDraft] = useState(null);
   const [dialog, setDialog] = useState(null);
   const editing = !!draft && draft.routineId === routineId;
-  const updateNotice = <PwaUpdateNotice editing={isEditingDefaults || editing} />;
+  const updateNotice = <PwaUpdateNotice editing={isEditingDefaults || editing} inline={isPhone && !isEditingDefaults} />;
 
   const endFor = ({ deadline = deadlineStr, deadlineMode = useDeadline, start = startTime, total = totalMinutes } = {}) =>
     computeElapsed({ mode: deadlineMode ? 'deadline' : 'start', startTime: start, deadline: toToday(deadline), now, totalMinutes: total }).endsAt.getTime();
@@ -97,7 +141,8 @@ export default function Home({ routines, setRoutines, currentTime, initialRoutin
   // for its end time keeping the done marks (restartPlan, as a save does). An untouched draft
   // shows the live schedule, so entering the edit mode never moves anything.
   const shownTasks = editing ? draftTasks(draft) : tasks;
-  const dirty = editing && isDirty(draft, tasks, draft.baseEnd);
+  // A recovered routine is not stored yet: saving it, even unchanged, stores it.
+  const dirty = editing && (recovered || isDirty(draft, tasks, draft.baseEnd));
   const draftEndMs = editing ? endAt(draft.endTime) : 0;
   const plan = editing && dirty
     ? restartPlan(shownTasks, draftEndMs, nowMs, (t, i) => draft.items[i].mark)
@@ -160,7 +205,10 @@ export default function Home({ routines, setRoutines, currentTime, initialRoutin
     setRoutines(updated);
   }
 
-  function saveDefaults(updated) {
+  // `restored`: 'day.period' keys the full editor put back to the app's default ("Excluir
+  // rotina"). If that is the routine on screen, its run starts over (its marks belonged to the
+  // routine that was deleted).
+  function saveDefaults(updated, { restored = [] } = {}) {
     // Keep local routines that were not changed in the full editor, including shortcut loads.
     let next = updated;
     try {
@@ -180,7 +228,7 @@ export default function Home({ routines, setRoutines, currentTime, initialRoutin
         }
       }
     } catch (_) {}
-    persistRoutine(next);
+    persistRoutine(next, restored.includes(`${todayKey}.${routineId}`) ? null : undefined);
     setIsEditingDefaults(false);
   }
 
@@ -217,8 +265,9 @@ export default function Home({ routines, setRoutines, currentTime, initialRoutin
   // routine with the same done marks, on the same schedule the preview showed. Never with an
   // invalid duration (Salvar is disabled then, and this guard keeps it so).
   const invalid = editing ? invalidItems(draft) : [];
+  const noTasks = editing && draft.items.length === 0;
   function saveEdit() {
-    if (!editing || invalid.length) return;
+    if (!editing || invalid.length || noTasks) return;
     if (dirty) {
       const nextTasks = savedTasks(draft);
       const markOf = (t, i) => draft.items[i].mark;
@@ -253,6 +302,7 @@ export default function Home({ routines, setRoutines, currentTime, initialRoutin
     onChange: (i, patch) => setDraft((d) => updateTask(d, i, patch)),
     onMinutes: (i, text) => setDraft((d) => typeMinutes(d, i, text)),
     invalid: invalid.map((it) => String(it.task.name || '').trim() || `Tarefa ${draft.items.indexOf(it) + 1}`),
+    noTasks,
     onInsert: (at, opener) => setDialog({ mode: 'insert', at, opener, where: whereLabel(at), seq: Date.now(),
       task: { name: '', icon: '✨', color: '#CCCCCC', minutes: NEW_TASK_MIN } }),
     onDetails: (i, opener) => setDialog({ mode: 'details', i, opener, where: nameAt(i), seq: Date.now(), task: draft.items[i].task, minutesText: draft.items[i].minutesText }),
@@ -281,17 +331,38 @@ export default function Home({ routines, setRoutines, currentTime, initialRoutin
     />
   );
 
+  const recoveredNotice = recovered && (
+    <div role="status" aria-label="Rotina recuperada" className="px-4 py-3 bg-[#FFF0DB] text-[#7A4A05] font-bold" style={{ flex: 'none' }}>
+      A rotina {PERIOD_LABEL[routineId] || ''} não estava salva neste aparelho. Mostrando o padrão original do aplicativo;
+      toque em ✏️ e Salvar para guardá-la (a outra rotina não muda).
+    </div>
+  );
+
+  const saveAlert = saveError && <div role="alert" className="p-4" style={{ flex: 'none' }}>{saveError}</div>;
+  // Same tree in every screen (the update notice keeps its state when switching), styled as
+  // the phone shell only on the phone's main screen.
+  const phoneMain = isPhone && !isEditingDefaults;
+  const page = (body) => (
+    <div data-testid={phoneMain ? 'phone-shell' : undefined} style={phoneMain ? phoneShellStyle(windowH) : undefined}>
+      {/* On the phone, messages take what they need, up to 40% of the screen (scrolling
+          inside), so the header, the AGORA card and the final footer always stay on screen. */}
+      <div data-testid={phoneMain ? 'phone-notices' : undefined} style={phoneMain ? { flex: '0 1 auto', maxHeight: '40%', overflowY: 'auto', overscrollBehavior: 'contain' } : undefined}>
+        {updateNotice}{notice}{saveAlert}{recoveredNotice}
+      </div>
+      {body}
+      {taskDialog}
+    </div>
+  );
+
   if (isEditingDefaults) {
-    return (
-      <>{updateNotice}
+    return page(
       <div className="mx-auto max-w-6xl px-4 py-6">
         <DefaultRoutineEditor
-          routines={routines}
+          routines={{ ...routines, [todayKey]: available }}
           onSave={saveDefaults}
           onCancel={() => setIsEditingDefaults(false)}
         />
       </div>
-      </>
     );
   }
 
@@ -325,12 +396,15 @@ export default function Home({ routines, setRoutines, currentTime, initialRoutin
     endLabel: hhmm(new Date(view.endMs)),
   };
 
-  return <>
-    {updateNotice}
-    {saveError && <div role="alert" className="p-4">{saveError}</div>}
-    {isPhone
-      ? <RoutinePhone {...shared} />
-      : <RoutineTV {...shared} startLabel={hhmm(new Date(view.startMs))} />}
-    {taskDialog}
-  </>;
+  return page(isPhone ? <RoutinePhone {...shared} /> : <RoutineTV {...shared} startLabel={hhmm(new Date(view.startMs))} />);
+}
+
+// The phone screen: exactly the window (see useWindowHeight), fixed, nothing around it to
+// scroll. Inside it only the task list scrolls; header, AGORA and the final footer stay put.
+function phoneShellStyle(h) {
+  return {
+    position: 'fixed', top: 0, left: 0, right: 0, height: h ? `${h}px` : '100dvh',
+    display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#FFF6E9',
+    paddingBottom: 'env(safe-area-inset-bottom, 0px)', boxSizing: 'border-box',
+  };
 }

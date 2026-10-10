@@ -1,11 +1,17 @@
 import React, { useState } from 'react';
 import { VALID_MINUTES_HINT, parseMinutes } from '../lib/routineDraft';
+import factoryRoutines from '../lib/defaultRoutines.json';
 
 // Durations follow the same rule as the edit mode: typed text is kept as is while typing, and
 // Salvar Alterações stays disabled until every task has a whole number from 1 to 180 minutes.
 const MINUTES_ERROR_ID = 'full-editor-minutes-error';
 
+const clone = (x) => JSON.parse(JSON.stringify(x));
+
 const DefaultRoutineEditor = ({ routines, onSave, onCancel }) => {
+  // Periods put back to the app's original default by "Excluir rotina" in this draft.
+  const [restored, setRestored] = useState([]);
+  const [restoreNotice, setRestoreNotice] = useState('');
   const [editableRoutines, setEditableRoutines] = useState(() => {
     const clone = JSON.parse(JSON.stringify(routines));
     Object.keys(clone || {}).forEach((day) => {
@@ -192,14 +198,31 @@ const DefaultRoutineEditor = ({ routines, onSave, onCancel }) => {
   };
 
   // Delete entire routine
+  // "Excluir rotina": a period the app has an original default for (manhã/noite) goes back to
+  // that default, so the screen never ends up without a routine (no "-", no 23:59, no link
+  // error). That is the app's original routine, not a personal default (not stored anywhere
+  // else). Other periods (created here) are removed. Only Salvar Alterações writes either.
   const handleDeleteRoutine = (day, period) => {
-    if (window.confirm(`Tem certeza que deseja excluir a rotina "${editableRoutines[day][period].name}"?`)) {
+    const current = editableRoutines[day][period];
+    const factory = factoryRoutines[day]?.[period];
+    if (!factory) {
+      if (!window.confirm(`Tem certeza que deseja excluir a rotina "${current.name}"? Nada é gravado até você tocar em Salvar Alterações.`)) return;
       setEditableRoutines(prev => {
-        const updated = { ...prev };
-        delete updated[day][period];
-        return updated;
+        const dayRoutines = { ...prev[day] };
+        delete dayRoutines[period];
+        return { ...prev, [day]: dayRoutines };
       });
+      return;
     }
+    const others = Object.keys(editableRoutines[day]).filter((p) => p !== period).map((p) => `"${editableRoutines[day][p].name}"`);
+    const message = `Excluir a rotina "${current.name}" e voltar à rotina padrão original do aplicativo `
+      + `(${factory.name}: ${factory.tasks.length} tarefas, termina às ${factory.endTime})?`
+      + (others.length ? ` A rotina ${others.join(', ')} não muda.` : '')
+      + ' Nada é gravado até você tocar em Salvar Alterações.';
+    if (!window.confirm(message)) return;
+    setEditableRoutines(prev => ({ ...prev, [day]: { ...prev[day], [period]: clone(factory) } }));
+    setRestored((r) => (r.includes(`${day}.${period}`) ? r : [...r, `${day}.${period}`]));
+    setRestoreNotice(`${factory.name} voltou ao padrão original do aplicativo. Toque em Salvar Alterações para confirmar, ou em Cancelar para desfazer.`);
   };
 
   const invalidMinutes = [];
@@ -211,8 +234,18 @@ const DefaultRoutineEditor = ({ routines, onSave, onCancel }) => {
     });
   });
 
+  // A routine without tasks would leave the screen empty: it cannot be saved.
+  const emptyRoutines = [];
+  Object.keys(editableRoutines || {}).forEach((day) => {
+    Object.keys(editableRoutines[day] || {}).forEach((period) => {
+      const r = editableRoutines[day][period];
+      if (!r?.tasks?.length) emptyRoutines.push(r?.name || period);
+    });
+  });
+  const blocked = invalidMinutes.length > 0 || emptyRoutines.length > 0;
+
   const handleSave = () => {
-    if (invalidMinutes.length) return;
+    if (blocked) return;
     const clean = JSON.parse(JSON.stringify(editableRoutines));
     Object.keys(clean || {}).forEach((day) => {
       Object.keys(clean[day] || {}).forEach((period) => {
@@ -231,7 +264,7 @@ const DefaultRoutineEditor = ({ routines, onSave, onCancel }) => {
         }
       });
     });
-    onSave(clean);
+    onSave(clean, { restored });
   };
 
   const daysOfWeek = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -272,7 +305,7 @@ const DefaultRoutineEditor = ({ routines, onSave, onCancel }) => {
               {Object.keys(editableRoutines[day]).map(period => {
                 const routine = editableRoutines[day][period];
                 return (
-                  <div key={period} className="rounded-2xl p-3 sm:p-4 bg-[#EADFCB]">
+                  <div key={period} role="group" aria-label={`Rotina ${routine.name}`} className="rounded-2xl p-3 sm:p-4 bg-[#EADFCB]">
                     {/* Routine Header */}
                     <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
                       <div className="flex flex-wrap items-center gap-3">
@@ -297,6 +330,8 @@ const DefaultRoutineEditor = ({ routines, onSave, onCancel }) => {
                       <button
                         onClick={() => handleDeleteRoutine(day, period)}
                         className={`${danger} text-sm min-h-[40px] px-4`}
+                        aria-label={`Excluir rotina ${routine.name}`}
+                        title={factoryRoutines[day]?.[period] ? 'Descarta esta rotina e volta à rotina padrão original do aplicativo (depois de Salvar Alterações)' : 'Remove esta rotina (depois de Salvar Alterações)'}
                       >
                         Excluir Rotina
                       </button>
@@ -446,9 +481,13 @@ const DefaultRoutineEditor = ({ routines, onSave, onCancel }) => {
 
       {/* Action Buttons */}
       <div className="sticky bottom-0 flex flex-wrap items-center justify-end gap-3 mt-8 pt-4 pb-2 border-t-2 border-[#F1E2C9] bg-white">
-        {invalidMinutes.length > 0 && (
+        {restoreNotice && !blocked && (
+          <div role="status" className="mr-auto rounded-xl bg-[#FFF0DB] text-[#7A4A05] font-extrabold px-3 py-2">{restoreNotice}</div>
+        )}
+        {blocked && (
           <div id={MINUTES_ERROR_ID} role="alert" className="mr-auto rounded-xl bg-[#FFE9E6] text-[#E5484D] font-extrabold px-3 py-2 shadow-[inset_0_0_0_2px_#E5484D]">
-            ⚠️ Duração inválida em {invalidMinutes.join(', ')}. {VALID_MINUTES_HINT} Corrija para poder salvar.
+            {invalidMinutes.length > 0 && <>⚠️ Duração inválida em {invalidMinutes.join(', ')}. {VALID_MINUTES_HINT} Corrija para poder salvar. </>}
+            {emptyRoutines.map((name) => <span key={name}>⚠️ {name} está sem tarefas. Adicione uma tarefa ou exclua a rotina para voltar ao padrão. </span>)}
           </div>
         )}
         <button
@@ -460,8 +499,8 @@ const DefaultRoutineEditor = ({ routines, onSave, onCancel }) => {
         <button
           onClick={handleSave}
           className={primary}
-          disabled={invalidMinutes.length > 0}
-          aria-describedby={invalidMinutes.length ? MINUTES_ERROR_ID : undefined}
+          disabled={blocked}
+          aria-describedby={blocked ? MINUTES_ERROR_ID : undefined}
         >
           Salvar Alterações
         </button>

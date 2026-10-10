@@ -287,7 +287,7 @@ export default function RoutineTV({ v, closing, clock, startLabel, endLabel, isM
               {edit ? (
                 <>
                   <div style={{ font: `600 28px ${FREDOKA}`, color: C.muted, whiteSpace: 'nowrap' }}>✏️ Editando {isMorning ? '☀️ Manhã' : '🌙 Noite'}</div>
-                  <EditBar onCancel={edit.onCancel} onSave={edit.onSave} blocked={edit.invalid.length > 0} font={22} h={58} />
+                  <EditBar onCancel={edit.onCancel} onSave={edit.onSave} blocked={edit.invalid.length > 0 || edit.noTasks} font={22} h={58} />
                 </>
               ) : (
                 <div style={{ display: 'flex', gap: 6, background: C.toggleBg, padding: 6, borderRadius: 999 }}>
@@ -403,7 +403,7 @@ export default function RoutineTV({ v, closing, clock, startLabel, endLabel, isM
           {edit ? (
             <div style={{ display: 'flex', gap: 18, flex: 1, minHeight: 0 }}>
               <EditTaskList items={edit.items} blocks={v.blocks} timeLabel={edit.timeLabel} size="tv"
-                onMove={edit.onMove} onStep={edit.onStep} onChange={edit.onChange} onMinutes={edit.onMinutes} invalid={edit.invalid} onInsert={edit.onInsert} onDetails={edit.onDetails} />
+                onMove={edit.onMove} onStep={edit.onStep} onChange={edit.onChange} onMinutes={edit.onMinutes} invalid={edit.invalid} noTasks={edit.noTasks} onInsert={edit.onInsert} onDetails={edit.onDetails} />
               <div style={{ width: 430, flex: 'none', background: '#fff', borderRadius: 28, padding: '20px 22px', boxSizing: 'border-box', boxShadow: '0 6px 0 rgba(0,0,0,.06)', display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto' }}>
                 <div style={{ font: `900 16px ${NUNITO}`, letterSpacing: 3, color: C.muted }}>FIM DA ROTINA</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

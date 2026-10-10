@@ -115,7 +115,7 @@ function InsertSlot({ items, at, s, size, onInsert }) {
 // Rows of the edit mode: name, ↑/↓ (swap with the neighbour), −1/+1 minute with the minutes
 // shown (and typed), ⋯ for icon/color/removal; a + slot between rows (and at both ends)
 // inserts a task exactly there. `blocks` are the preview's view blocks (same order).
-export function EditTaskList({ items, blocks, timeLabel, size = 'phone', onMove, onStep, onChange, onMinutes, onInsert, onDetails, invalid = [] }) {
+export function EditTaskList({ items, blocks, timeLabel, size = 'phone', onMove, onStep, onChange, onMinutes, onInsert, onDetails, invalid = [], noTasks = false }) {
   const s = SIZES[size];
   const scrollRef = useRef(null);
   const anchor = useRef(null);
@@ -214,9 +214,11 @@ export function EditTaskList({ items, blocks, timeLabel, size = 'phone', onMove,
   });
   rows.push(<InsertSlot key="slot-end" items={items} at={items.length} s={s} size={size} onInsert={onInsert} />);
   // Why Salvar is disabled, pinned at the top of the list while any duration is invalid.
-  const error = invalid.length > 0 && (
+  const error = (invalid.length > 0 || noTasks) && (
     <div id={MINUTES_ERROR_ID} role="alert" data-testid="minutes-error" style={{ position: 'sticky', top: 0, zIndex: 6, margin: '8px 0 0', background: C.redBg, color: C.red, borderRadius: 12, padding: size === 'tv' ? '10px 14px' : '7px 10px', font: `800 ${size === 'tv' ? 19 : 13}px/1.3 ${NUNITO}`, boxShadow: `inset 0 0 0 2px ${C.red}` }}>
-      ⚠️ Duração inválida em {invalid.join(', ')}. {VALID_MINUTES_HINT} Corrija para poder salvar.
+      {noTasks
+        ? <>⚠️ A rotina precisa de pelo menos uma tarefa. Toque em + para inserir uma, ou em Cancelar.</>
+        : <>⚠️ Duração inválida em {invalid.join(', ')}. {VALID_MINUTES_HINT} Corrija para poder salvar.</>}
     </div>
   );
 
@@ -227,7 +229,7 @@ export function EditTaskList({ items, blocks, timeLabel, size = 'phone', onMove,
       role="region"
       aria-label="Tarefas em edição"
       className="no-scrollbar"
-      style={{ position: 'relative', flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', borderRadius: s.radius, background: C.track, padding: '0 8px', display: 'flex', flexDirection: 'column' }}
+      style={{ position: 'relative', flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', overscrollBehavior: 'contain', borderRadius: s.radius, background: C.track, padding: '0 8px', display: 'flex', flexDirection: 'column' }}
     >
       {error}
       {rows}

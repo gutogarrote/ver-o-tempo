@@ -75,9 +75,11 @@ function App({ preserveUpdate = false }) {
 
   return (
     <div className="min-h-screen" style={{ background: "#FFF6E9" }}>
-      {urlConfig.status === 'invalid' && <InvalidLinkNotice {...urlConfig} />}
+      {/* Home places the notice itself (inside the phone screen, or above the TV/editors). */}
+      {!routines && urlConfig.status === 'invalid' && <InvalidLinkNotice {...urlConfig} />}
       {routines ? (
-        <Home initialRoutineId={urlConfig.period || 'morning'} routines={routines} setRoutines={setRoutines} currentTime={currentTime} />
+        <Home initialRoutineId={urlConfig.period || 'morning'} routines={routines} setRoutines={setRoutines} currentTime={currentTime}
+          notice={urlConfig.status === 'invalid' ? <InvalidLinkNotice {...urlConfig} /> : null} />
       ) : (
         <div className="p-6">Carregando rotinas…</div>
       )}
