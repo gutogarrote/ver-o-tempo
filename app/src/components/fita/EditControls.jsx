@@ -7,7 +7,7 @@ import { MAX_TASK_MIN, MIN_TASK_MIN, canStep } from '../../lib/routineDraft';
 // stage is scaled as a whole, so its numbers are stage pixels.
 export const SIZES = {
   phone: { row: 104, slot: 44, btn: 44, btnH: 40, font: 16, small: 12, gap: 6, pad: 10, name: 16, radius: 20 },
-  tv: { row: 68, slot: 40, btn: 52, btnH: 48, font: 22, small: 17, gap: 10, pad: 16, name: 22, radius: 28 },
+  tv: { row: 68, slot: 46, btn: 52, btnH: 48, font: 22, small: 17, gap: 10, pad: 16, name: 22, radius: 28 },
 };
 
 // Pill button in the app's style (white, soft shadow); `tone` changes the colors.
@@ -115,8 +115,9 @@ export function EditTaskList({ items, blocks, timeLabel, size = 'phone', onMove,
   const anchor = useRef(null);
 
   // A moved row stays under the finger/pointer: the list scrolls by exactly how far the row
-  // moved, so tapping the same arrow again keeps moving the same task. When the arrow that
-  // was used becomes disabled (first/last), focus goes to the other arrow of that row.
+  // moved (in the list's own pixels: the TV stage is scaled), so tapping the same arrow again
+  // keeps moving the same task; at either end of the list it just stays in view. When the
+  // arrow that was used becomes disabled (first/last), focus goes to the other arrow.
   useLayoutEffect(() => {
     const a = anchor.current;
     const list = scrollRef.current;
@@ -124,7 +125,8 @@ export function EditTaskList({ items, blocks, timeLabel, size = 'phone', onMove,
     anchor.current = null;
     const row = list.querySelector(`[data-key="${a.key}"]`);
     if (!row) return;
-    list.scrollTop += row.getBoundingClientRect().top - a.top;
+    const scale = list.offsetHeight ? list.getBoundingClientRect().height / list.offsetHeight : 1;
+    list.scrollTop += (row.getBoundingClientRect().top - a.top) / (scale || 1);
     const used = row.querySelector(`[data-action="${a.dir < 0 ? 'up' : 'down'}"]`);
     if (a.focus) (used && !used.disabled ? used : row.querySelector(`[data-action="${a.dir < 0 ? 'down' : 'up'}"]`))?.focus();
   });

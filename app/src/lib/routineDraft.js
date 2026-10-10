@@ -112,13 +112,17 @@ export function isDirty(draft, tasks, endTime) {
 // How the end time of the draft compares with what is left to do.
 //  - overdue: the end time is not in the future;
 //  - tight: what is left of the tasks (see `left`; inserted tasks count whole, done marks
-//    count nothing) needs more minutes than there are until the end;
-//  - ok otherwise. `needed`/`available` are whole minutes.
+//    count nothing) needs more than the minutes until the end, by over half a minute (so a
+//    schedule that fits exactly never flickers into a warning as the seconds go by);
+//  - ok otherwise. `needed` (rounded up) and `available` (rounded down) are whole minutes.
+export const TIGHT_TOLERANCE_MIN = 0.5;
 export function deadlineStatus(draft, endMs, nowMs) {
   const since = Math.max(0, (nowMs - (draft.startedAt ?? nowMs)) / MIN_MS);
   const leftOf = (it) => (it.left === undefined ? Math.max(0, minutesOf(it.task)) : Math.max(0, it.left - (it.running ? since : 0)));
-  const needed = Math.ceil(draft.items.reduce((s, it) => s + (it.mark !== undefined ? 0 : leftOf(it)), 0) - 1e-9);
-  const available = Math.floor((endMs - nowMs) / MIN_MS);
+  const neededExact = draft.items.reduce((s, it) => s + (it.mark !== undefined ? 0 : leftOf(it)), 0);
+  const availableExact = (endMs - nowMs) / MIN_MS;
+  const needed = Math.ceil(neededExact - 1e-9);
   if (endMs <= nowMs) return { kind: 'overdue', needed, available: 0 };
-  return { kind: needed > available ? 'tight' : 'ok', needed, available };
+  const kind = neededExact > availableExact + TIGHT_TOLERANCE_MIN ? 'tight' : 'ok';
+  return { kind, needed, available: Math.floor(availableExact + 1e-9) };
 }

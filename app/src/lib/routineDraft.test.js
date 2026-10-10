@@ -106,6 +106,11 @@ describe('end time', () => {
     expect(deadlineStatus(d, T0 + 50 * MIN_MS, now)).toEqual({ kind: 'ok', needed: 45, available: 45 });
     expect(deadlineStatus(d, T0 + 45 * MIN_MS, now)).toEqual({ kind: 'tight', needed: 45, available: 40 });
     expect(deadlineStatus(d, now, now).kind).toBe('overdue');
+    // An exact fit stays ok as seconds go by (the task in progress counts down too) and
+    // within half a minute of rounding.
+    expect(deadlineStatus(d, T0 + 50 * MIN_MS, now + 1000).kind).toBe('ok');
+    expect(deadlineStatus(d, T0 + 50 * MIN_MS - 20000, now).kind).toBe('ok');
+    expect(deadlineStatus(d, T0 + 50 * MIN_MS - 40000, now)).toEqual({ kind: 'tight', needed: 45, available: 44 });
     // Done marks need nothing; a longer task needs more; an inserted one counts whole.
     const marked = { ...d, items: d.items.map((it, i) => (i === 2 ? { ...it, mark: 1 } : it)) };
     expect(deadlineStatus(marked, T0 + 45 * MIN_MS, now).kind).toBe('ok');
