@@ -131,6 +131,24 @@ Novos links usam **v2**, já implementada: [abrir uma rotina de noite](https://v
 
 O build gera a [página humana `/instrucoes`](https://ver-o-tempo.ggarrote.workers.dev/instrucoes) e o [Markdown `/instrucoes.md`](https://ver-o-tempo.ggarrote.workers.dev/instrucoes.md) da mesma fonte; a página contém o texto inteiro sem precisar executar JavaScript. Links v1 continuam aceitos; seu [guia de compatibilidade](docs/url-rotina.md) descreve somente o formato legado. Os atalhos `/0630`, `/0720` e `/1930` abrem tarefas padrão da manhã/noite com esse horário final.
 
+### Manter a tela ligada
+
+No menu **☰**, **Manter tela ligada** começa desligado. Ao ativar, o app solicita
+Screen Wake Lock nativo enquanto a rotina estiver visível, inclusive no atraso.
+A caixa indica sua preferência; o texto informa se o bloqueio foi adquirido,
+está suspenso ou indisponível. Requer navegador compatível e HTTPS (ou localhost);
+um endereço HTTP da rede local pode não oferecer suporte. O navegador pode recusar
+ou liberar o bloqueio, por exemplo para economizar bateria. Não mantém tela em segundo plano.
+
+A preferência fica só neste navegador/origem, na chave separada
+`ver-o-tempo:keep-screen-on`, sem entrar no link ou exportação da rotina. Se o storage
+estiver bloqueado, vale só para a sessão e o menu avisa. O bloqueio é liberado ao
+desativar, ocultar/sair da página, abrir **Rotinas**, desmontar a tela ou marcar todas
+as tarefas explicitamente como feitas. A edição na própria tela mantém o bloqueio.
+Ao voltar à rotina ou à página visível, tenta adquirir de novo se ainda elegível;
+recusas e liberações pelo sistema não geram tentativas contínuas. Para tentar
+manualmente, desative e ative a opção.
+
 ### Dicas para funcionar melhor
 - **Comece com poucas tarefas.** Quatro ou cinco já fazem diferença. Dá para aumentar depois.
 - **Deixe a criança escolher** os emojis e as cores das tarefas dela. Ela vai se sentir dona da rotina.

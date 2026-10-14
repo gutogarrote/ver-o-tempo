@@ -179,9 +179,9 @@ describe('done marks survive deadline changes and saves', () => {
     expect(dot('Dentes')).toHaveAttribute('aria-pressed', 'true');
     expect(dot('Banho')).toHaveAttribute('aria-pressed', 'true');
     // Turning the deadline off/on keeps them too.
-    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Horário limite' }));
     expect(dot('Dentes')).toHaveAttribute('aria-pressed', 'true');
-    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Horário limite' }));
     expect(dot('Dentes')).toHaveAttribute('aria-pressed', 'true');
   });
 

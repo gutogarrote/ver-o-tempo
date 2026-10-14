@@ -15,6 +15,7 @@ import {
 } from '../lib/routineDraft';
 import catalog from '../lib/taskCatalog.json';
 import factoryRoutines from '../lib/defaultRoutines.json';
+import useScreenWakeLock from '../hooks/useScreenWakeLock';
 
 // Phones and portrait screens get the vertical ribbon (2a); landscape gets the TV stage (1a).
 const PHONE_QUERY = '(max-width: 767px), (max-aspect-ratio: 1/1)';
@@ -125,6 +126,8 @@ export default function Home({ routines, setRoutines, currentTime, initialRoutin
   // Edit states. The full editor ("Rotinas") replaces the screen; the edit mode keeps it and
   // works on a draft (see lib/routineDraft) that only Salvar persists and Cancelar drops.
   const [isEditingDefaults, setIsEditingDefaults] = useState(false);
+  const explicitlyCompleted = tasks.length > 0 && livePlan.done.every(Boolean);
+  const wakeLock = useScreenWakeLock(!isEditingDefaults && !explicitlyCompleted, explicitlyCompleted);
   const windowH = useWindowHeight(isPhone && !isEditingDefaults);
   const [draft, setDraft] = useState(null);
   const [dialog, setDialog] = useState(null);
@@ -369,6 +372,7 @@ export default function Home({ routines, setRoutines, currentTime, initialRoutin
   const badge = (dims) => (
     <ParentMenu
       {...dims}
+      wakeLock={wakeLock}
       disabled={editing}
       onEdit={startEdit}
       onEditDefaults={() => setIsEditingDefaults(true)}
