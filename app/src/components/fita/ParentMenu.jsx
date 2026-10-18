@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { C, NUNITO } from './theme';
 import { HamburgerIcon } from './EditControls';
 
@@ -8,13 +8,26 @@ import { HamburgerIcon } from './EditControls';
 // The panel closes on a click/tap outside it, on Escape (focus goes back to ☰) and when
 // focus leaves it with Tab; using its controls never closes it. Opening it with the
 // keyboard focuses its first item.
-export default function ParentMenu({ size, radius, fontSize, shadow, withLabel = false, disabled = false, onEdit, onEditDefaults, deadlineStr, setDeadlineStr, useDeadline, setUseDeadline, onSaveEndTime }) {
+export default function ParentMenu({ size, radius, fontSize, shadow, withLabel = false, disabled = false, onEdit, onEditDefaults, deadlineStr, setDeadlineStr, useDeadline, setUseDeadline, onSaveEndTime, wakeLock }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
   const buttonRef = useRef(null);
   const panelRef = useRef(null);
   const byKeyboard = useRef(false);
   const panelId = useId();
+  const statusId = useId();
+  const [panelBounds, setPanelBounds] = useState({});
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+    const measure = () => {
+      const rect = rootRef.current.getBoundingClientRect();
+      const scale = buttonRef.current.getBoundingClientRect().height / size || 1;
+      setPanelBounds({ width: Math.min(340, (window.innerWidth - rect.left - 12) / scale), maxHeight: Math.max(44, (window.innerHeight - rect.bottom - 12) / scale - 10) });
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [open, size]);
   const item = { display: 'flex', alignItems: 'center', gap: 6, width: '100%', minHeight: 44, textAlign: 'left', padding: '10px 14px', border: 0, borderRadius: 12, background: 'transparent', cursor: 'pointer', font: `800 16px ${NUNITO}`, color: C.ink, whiteSpace: 'nowrap', boxSizing: 'border-box' };
   if (open && disabled) setOpen(false);
 
@@ -73,11 +86,11 @@ export default function ParentMenu({ size, radius, fontSize, shadow, withLabel =
           id={panelId}
           role="dialog"
           aria-label="Menu dos pais"
-          style={{ position: 'absolute', top: size + 10, left: 0, zIndex: 20, background: '#fff', borderRadius: 18, padding: 8, minWidth: 240, boxShadow: '0 10px 30px rgba(42,33,24,.18)' }}
+          style={{ position: 'absolute', top: size + 10, left: 0, zIndex: 20, background: '#fff', borderRadius: 18, padding: 8, ...panelBounds, overflowY: 'auto', overscrollBehavior: 'contain', boxSizing: 'border-box', boxShadow: '0 10px 30px rgba(42,33,24,.18)' }}
         >
           <button className="fita-btn fita-menu-item" style={item} onClick={() => { setOpen(false); onEdit(); }}>✏️ Editar esta rotina</button>
           <button className="fita-btn fita-menu-item" style={item} onClick={() => { setOpen(false); onEditDefaults(); }}>⚙️ Rotinas</button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', marginTop: 4, borderTop: `2px solid ${C.toggleBg}`, font: `700 15px ${NUNITO}`, color: C.muted }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '10px 14px', marginTop: 4, borderTop: `2px solid ${C.toggleBg}`, font: `700 15px ${NUNITO}`, color: C.muted }}>
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', minHeight: 36 }}>
               <input type="checkbox" checked={useDeadline} onChange={(e) => setUseDeadline(e.target.checked)} style={{ width: 20, height: 20, accentColor: C.sunShadow }} />
               Horário limite
@@ -91,6 +104,15 @@ export default function ParentMenu({ size, radius, fontSize, shadow, withLabel =
             />
           </div>
           <button className="fita-btn fita-menu-item" style={item} onClick={onSaveEndTime}>Salvar horário</button>
+          {wakeLock && <div style={{ padding: '10px 14px', borderTop: `2px solid ${C.toggleBg}`, font: `700 15px ${NUNITO}`, color: C.ink }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 44, cursor: 'pointer' }}>
+              <input type="checkbox" checked={wakeLock.enabled} onChange={(e) => wakeLock.toggle(e.target.checked)} aria-describedby={statusId} style={{ width: 20, height: 20, flexShrink: 0, accentColor: C.sunShadow }} />
+              Manter tela ligada
+            </label>
+            <p id={statusId} role="status" style={{ margin: '4px 0', lineHeight: 1.4 }}>{wakeLock.message}</p>
+            <p style={{ margin: '4px 0', fontWeight: 600 }}>Preferência só neste navegador. Funciona enquanto a rotina estiver visível.</p>
+            {wakeLock.storageFailed && <p role="status">Não foi possível guardar a preferência; vale só nesta sessão.</p>}
+          </div>}
         </div>
       )}
     </div>
