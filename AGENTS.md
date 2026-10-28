@@ -48,7 +48,7 @@
 
 
 ## Current Architecture and Verification
-- Use Node 22.23.3 (`.nvmrc` and app engines) and Python 3 on PATH for executable doc examples.
+- Use Node 22.23.4 (`.nvmrc` and app engines) and Python 3 on PATH for executable doc examples.
 - App loads URL/storage/defaults; Home controls the session; components/fita implements TV/phone UI.
 - lib contains schedule, routineView, trackLayout, timeline and routineUrl helpers.
 - Configuration persists in localStorage; session is in memory; no backend. Production/preview registers a native PWA worker; dev does not. See docs/pwa.md.
@@ -63,7 +63,7 @@
 ## Implantação: Cloudflare Workers Static Assets (fase 3)
 
 A configuração `wrangler.jsonc` na raiz prepara o Worker `ver-o-tempo` na conta
-`339987eb42deac962dcd86bffd351107`, com Wrangler fixado em 4.149.0.
+`339987eb42deac962dcd86bffd351107`, com Wrangler fixado em 4.155.0.
 Usa somente assets de `./app/build` (caminho relativo à configuração), sem script Worker.
 `workers_dev=true` habilita workers.dev; não há routes, domínio personalizado nem alteração de DNS.
 O fallback `assets.not_found_handling="single-page-application"` entrega `index.html`

@@ -1,5 +1,29 @@
 # Progresso — Rotina da Nina
 
+## Manutenção de dependências — issue 28 (2026-10-28)
+
+Node 22.23.3 → 22.23.4 (patch de segurança da linha LTS ainda suportada até
+2027-04-30); Wrangler 4.149.0 → 4.155.0 e correções compatíveis no lockfile de
+postcss-selector-parser, undici e zod. Tailwind 3.4.17, React e código funcional
+preservados, sem overrides. O CI já consome `.nvmrc`.
+
+Auditoria atual: 5 pacotes afetados (3 moderate, 2 high) → 0; omitindo dev: 0 → 0.
+O advisory histórico de braces foi retirado em 23/10. Zero no audit não é garantia
+absoluta de segurança. ESLint 9 segue depreciado por compatibilidade dos peers.
+
+Node local isolado: npm ci, lint zero warnings, 491 testes/25 arquivos sem skip/todo
+e build passaram. Uma execução concorrente com Chromium teve um timeout de 5s;
+a repetição completa sem concorrência passou sem alterar testes ou limites.
+Chromium: 552/552 verificações em celular/desktop/TV, geometria e estilos medidos
+iguais ao baseline, sem overflow horizontal nem erros de página; smoke PWA offline
+com atalhos e URLs v1/v2 passou. Build anterior à atualização documental inteiro
+byte a byte igual ao baseline. A atualização do pin no guia muda apenas os assets
+de instruções gerados; bundles JS/CSS preservados.
+
+Ver [decisões, procedência e evidências](docs/dependency-maintenance.md).
+Somente artefato local; sem push, PR, merge ou deploy. Issue aberta até o merge.
+Os registros das fases abaixo descrevem seus respectivos momentos históricos.
+
 ## Instruções oficiais v2 — tarefa 29 (2026-10-10)
 
 V2 já implementada passa a ter guia autossuficiente em `docs/url-rotina-v2.md`,

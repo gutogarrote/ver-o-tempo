@@ -19,7 +19,7 @@
   Sessão continua volátil. Cache só de assets públicos canônicos do build.
   Instalação, limites, cache e rollback: [docs/pwa.md](docs/pwa.md).
 - Stack atual: Vite 8, React 19, Tailwind 3, Vitest 5/Testing Library e ESLint explícito.
-  Node 22.23.3 e Python 3; checks documentados em README e AGENTS.
+  Node 22.23.4 e Python 3; checks documentados em README e AGENTS.
 
 ## Histórico — visão inicial, não requisitos implementados
 

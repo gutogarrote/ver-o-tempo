@@ -135,7 +135,7 @@ Entregue o valor de rotina e o link completo clicável, mais uma conferência de
 
 ## Exemplos executáveis para construção
 
-Os dois programas independentes abaixo demonstram a codificação; o parser real valida os links nos testes. Use Node 22.23.3 ou Python 3. A base localhost é só para execução local; substitua pela base oficial para compartilhar.
+Os dois programas independentes abaixo demonstram a codificação; o parser real valida os links nos testes. Use Node 22.23.4 ou Python 3. A base localhost é só para execução local; substitua pela base oficial para compartilhar.
 
 ```js
 const base = 'http://localhost:3000/';
