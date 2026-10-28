@@ -25,7 +25,7 @@ com bloqueio nos editores e preservação do storage no reload. Veja [docs/pwa.m
 
 ## Comandos
 
-Node 22.23.4 (`.nvmrc`, engines); Python 3 no PATH é necessário ao teste da documentação.
+Node 26.13.0 (`.nvmrc`, engines); Python 3 no PATH é necessário ao teste da documentação.
 Todos os comandos npm são executados em `app/`:
 
 ```bash

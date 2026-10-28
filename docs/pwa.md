@@ -116,7 +116,7 @@ são binários versionados; a conversão deles não faz parte de `npm ci` ou do 
 
 ## Verificar localmente
 
-Com Node 22.23.4, em `app/`:
+Com Node 26.13.0, em `app/`:
 
 ```bash
 npm ci

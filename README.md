@@ -168,7 +168,7 @@ As rotinas ficam guardadas **por endereço**: o que você salvou em `localhost` 
 
 ### PELO TERMINAL
 
-Para quem já tem [Git](https://git-scm.com/) e [Node.js](https://nodejs.org/) (22.23.4 LTS, conforme `.nvmrc`) instalados:
+Para quem já tem [Git](https://git-scm.com/) e [Node.js](https://nodejs.org/) (26.13.0 LTS, conforme `.nvmrc`) instalados:
 
 ```bash
 git clone https://github.com/gutogarrote/ver-o-tempo.git
@@ -187,7 +187,7 @@ Não é preciso saber programar: basta seguir os passos.
 O Node.js é um programa gratuito que faz o app funcionar.
 
 1. Entre em **[nodejs.org](https://nodejs.org/)**.
-2. Baixe a versão **22.23.4 LTS** e instale como qualquer outro programa (pode ir clicando em "Avançar"/"Continuar").
+2. Baixe a versão **26.13.0 LTS** e instale como qualquer outro programa (pode ir clicando em "Avançar"/"Continuar").
 
 #### 2. Baixe o app
 1. Na [página do projeto no GitHub](https://github.com/gutogarrote/ver-o-tempo), clique no botão verde **`<> Code`** e depois em **Download ZIP**.
@@ -263,14 +263,14 @@ Este é o repositório do [ver-o-tempo](https://github.com/gutogarrote/ver-o-tem
 - It adapts to the screen: a horizontal ribbon on a TV, a vertical scrolling list on a phone.
 - Parents tap **✏️** to edit the routine on the main screen: ▲/▼ reorder, −1/+1 minute (every duration must be a whole number from 1 to 180; saving is disabled otherwise), **+** between tasks inserts one there, and −5/+5 move the routine's end time. It is a draft until **Salvar** (save); **Cancelar** discards it. Done marks stay with their tasks. The full editor and the deadline live behind the **☰** menu; there, **Excluir Rotina** (delete) on the morning or evening puts that period back to the app's original default after confirmation and **Salvar Alterações**, leaving the other period untouched. On phones only the task list scrolls: header, AGORA card and the footer (end time, +5, ✏️) stay on screen.
 - The end time is shown on the final milestone (phone) and above **+5 min** (TV); the normal **+5 min** still adds time for this run only.
-- **Two ways to run it.** (1) A published HTTPS build, when there is one: the project is prepared for Cloudflare Workers Static Assets, but this README lists no public address. A production HTTPS build needs no home computer, can be installed as an app (PWA) and works offline after one complete online visit plus a reload; the very first visit cannot be offline. See [docs/pwa.md](docs/pwa.md). (2) Locally: get [Node.js](https://nodejs.org/) (22.23.4 LTS, pinned in `.nvmrc`), then `git clone https://github.com/gutogarrote/ver-o-tempo.git`, `cd ver-o-tempo/app`, `npm ci`, `npm start` (or download the ZIP from GitHub). To use it on a TV or phone on the same Wi-Fi, open the "Network" address that `npm start` prints. The computer must stay on, and the dev server does not install the app or work offline.
+- **Two ways to run it.** (1) A published HTTPS build, when there is one: the project is prepared for Cloudflare Workers Static Assets, but this README lists no public address. A production HTTPS build needs no home computer, can be installed as an app (PWA) and works offline after one complete online visit plus a reload; the very first visit cannot be offline. See [docs/pwa.md](docs/pwa.md). (2) Locally: get [Node.js](https://nodejs.org/) (26.13.0 LTS, pinned in `.nvmrc`), then `git clone https://github.com/gutogarrote/ver-o-tempo.git`, `cd ver-o-tempo/app`, `npm ci`, `npm start` (or download the ZIP from GitHub). To use it on a TV or phone on the same Wi-Fi, open the "Network" address that `npm start` prints. The computer must stay on, and the dev server does not install the app or work offline.
 - Routines are stored per address (origin): data saved on `localhost` or the local network address does not move to a published address by itself; use a routine link to carry a routine.
 - **Not yet available:** sound alerts, different routines per weekday, and syncing between devices. Settings stay in each device's browser, with no accounts, login or routines backend. Fonts (Nunito, Fredoka, SIL OFL 1.1) are self-hosted with the app; no Google Fonts requests. Shared URLs can expose the names and schedules they contain.
 
 ## Manutenção e verificações
 
 A fase 2 usa Vite e Vitest, mantendo React 19, Tailwind 3, a interface e os contratos.
-Use Node **22.23.4** (`nvm use` na raiz) e Python 3 no PATH para os exemplos executáveis de URL.
+Use Node **26.13.0** (`nvm use` na raiz) e Python 3 no PATH para os exemplos executáveis de URL.
 Em `app/`: `npm ci`, `npm run lint -- --max-warnings=0`,
 `npm test -- --run` e `npm run build`.
 O CI executa esses quatro checks; a suíte tem 491 cenários em 25 arquivos,
@@ -280,8 +280,13 @@ incluindo os 228 originais preservados, os testes PWA e os do modo de edição, 
 O lint usa configuração explícita em `app/eslint.config.mjs`, incluindo os testes.
 `npm audit` é uma triagem separada do build. ESLint 9.39.5 está depreciado, mas
 é a linha compatível declarada pelos plugins React/JSX a11y atuais; revisar quando suportarem ESLint 10.
-A manutenção da issue 28 usa o patch de segurança Node 22.23.4 da linha LTS 22
-(suporte até abril de 2027), mantendo Tailwind 3 e corrigindo transitivas compatíveis.
+A manutenção da issue 28 usa Node **26.13.0 LTS (Lithium)** com npm **11.20.0**,
+conforme migração autorizada por Guto, com suporte da linha 26 até **2029-04-30**.
+Tailwind 3 e as correções de transitivas foram preservados; o lockfile muda apenas
+o engine na raiz nesta migração. O CI lê o pin de `.nvmrc`.
+O PR32 já está aberto; Hermes fará a verificação independente, o push na mesma
+branch e a atualização do PR. Este follow-up gera commit local, sem push, edição
+de PR, merge ou deploy.
 Em 2026-10-28, o audit completo passou de 5 pacotes afetados (3 moderate, 2 high)
 para 0; `npm audit --omit=dev` retornou 0 antes e depois. Isso não é garantia absoluta
 de segurança. Ver [alternativas, procedência, limites e evidências](docs/dependency-maintenance.md).

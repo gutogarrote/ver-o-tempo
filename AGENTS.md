@@ -48,7 +48,7 @@
 
 
 ## Current Architecture and Verification
-- Use Node 22.23.4 (`.nvmrc` and app engines) and Python 3 on PATH for executable doc examples.
+- Use Node 26.13.0 (`.nvmrc` and app engines) and Python 3 on PATH for executable doc examples.
 - App loads URL/storage/defaults; Home controls the session; components/fita implements TV/phone UI.
 - lib contains schedule, routineView, trackLayout, timeline and routineUrl helpers.
 - Configuration persists in localStorage; session is in memory; no backend. Production/preview registers a native PWA worker; dev does not. See docs/pwa.md.

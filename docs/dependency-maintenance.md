@@ -58,17 +58,23 @@ range. Tailwind 4 exigiria revisar plugin PostCSS, configuração, utilitários 
 Essa migração amplia o risco visual sem benefício necessário para estes achados.
 Não foi executado `npm audit fix --force`.
 
-Node **22.23.4**, npm **10.9.9**: patch de segurança da linha já utilizada.
-[Release oficial](https://nodejs.org/en/blog/release/v22.23.4) corrige problemas em
-DNS, TLS, Brotli, HTTP e dependências embutidas, posteriores ao pin 22.23.3.
-O [índice oficial](https://nodejs.org/dist/index.json) indicava 22.23.4 como último 22;
-Node 24.22.2 e 26.13.0 também estavam em LTS. Conforme o
-[cronograma oficial](https://github.com/nodejs/Release/blob/main/schedule.json),
-a linha 22 recebe manutenção até 2027-04-30, 24 até 2028-04-30 e 26 até 2029-04-30.
-Escolher o patch da linha 22 reduz a mudança de runtime; a contrapartida é planejar
-migração de major antes de abril de 2027. Não há alegação de segurança absoluta.
-Os binários locais foram baixados de nodejs.org e conferidos com SHASUMS256.
-Nenhum runtime/configuração global foi alterado.
+Node **26.13.0 LTS (Lithium)**, com npm **11.20.0** incluído no runtime oficial,
+é a escolha atual, explicitamente autorizada por Guto para a mesma branch e PR32.
+O [índice oficial](https://nodejs.org/dist/index.json), consultado em 2026-10-28,
+confirma a versão, o npm e a entrada em LTS nessa data. O
+[cronograma oficial](https://github.com/nodejs/Release/blob/main/schedule.json)
+prevê suporte da linha 26 até **2029-04-30**. A decisão amplia o horizonte de suporte;
+a compatibilidade da troca de major foi verificada com a suíte e o build existentes.
+O runtime foi baixado de `nodejs.org/dist/v26.13.0/` para a pasta de evidências e o
+SHA256 do tarball foi conferido com o `SHASUMS256.txt` oficial antes da extração.
+Nenhum runtime ou configuração global de Node/CLI foi alterado.
+
+Histórico: a primeira etapa desta manutenção escolheu Node 22.23.4/npm 10.9.9,
+um patch de segurança sobre 22.23.3, para limitar a mudança de runtime.
+Essa recomendação de permanecer na linha 22 foi substituída pela autorização de
+migrar para 26.13.0. As correções de vulnerabilidades daquela etapa foram preservadas.
+Nesta migração, somente `packages[""].engines.node` muda no lockfile; nenhuma resolução,
+versão, integridade ou dependência foi alterada pelo npm 11.
 
 `.nvmrc`, engines e documentação usam o mesmo pin; o workflow já lê
 `node-version-file: .nvmrc`, portanto recebe a atualização sem duplicar o número.
@@ -76,11 +82,47 @@ ESLint 9.39.5 continua depreciado: os plugins atuais React 7.37.5 e JSX a11y 6.1
 só declaram suporte até ESLint 9. A migração para 10 permanece pendente de peers
 compatíveis, sem desabilitar regras nem forçar instalação incompatível.
 
-## Verificação local
+## Verificação atual — Node 26
+
+Evidências desta migração: `/home/ubuntu/.hermes/cache/scratch/ver-o-tempo-node26-evidence`.
+O PR32 já está aberto; Hermes fará a verificação independente, o push na mesma branch
+e a atualização desse PR. Este follow-up produz commit local, sem push, edição de PR,
+merge ou deploy. A issue permanece aberta até o merge.
+
+No runtime oficial isolado Node 26.13.0/npm 11.20.0 passaram, em sequência:
+`npm ci`, `npm run lint -- --max-warnings=0`, `npm test -- --run` (491/491 em
+25 arquivos, 72,47 s, sem skip/todo ou mudança de testes/assertions/timeouts),
+`npm run build`, `npm audit --json` e `npm audit --omit=dev --json` (ambos zero).
+`git diff --check` também passou. Código funcional, CSS e testes não foram alterados.
+
+Chromium: 552/552 verificações em 360×740, 390×844, 1366×768 e 1920×1080;
+8/8 capturas iguais pixel a pixel ao baseline, geometria e estilos computados iguais.
+PWA em preview: manifest HTTP 200, worker controlando após reload, navegação e
+abertura/cancelamento do editor offline em `/0720`, `/1930` e queries v1/v2,
+sem erros de página. Suites executadas sem concorrência entre Vitest e browsers.
+Não houve teste em hardware Android/iOS, WebKit ou implantação remota nesta migração.
+
+Comparação com o build baseline de main `5148034`: `index-EkGWOnXY.js` e
+`index-Bp3UgflG.css` byte a byte iguais. Apenas `instrucoes.md` e
+`instrucoes/index.html` mudam pelo pin atualizado no guia; os demais assets,
+incluindo o worker, permanecem iguais.
+Logs: `runtime.txt`, `checksum-verification.txt`, `npm-ci.log`, `lint.log`,
+`test.log`, `build.log`, `audit.json`, `audit-prod.json`, `lock-comparison.json`,
+`build-comparison.json`, `browser.log`, `browser-results.json`, `pwa-results.json`,
+`visual-comparison.json` e `diff-check.log`; scripts e capturas `node26-*.png`
+estão na pasta desta migração acima, separados das evidências históricas.
+
+`npm ci` com npm 11.20.0 preservou o lockfile. Além da depreciação conhecida do
+ESLint 9, informou scripts de instalação de esbuild/workerd ainda não cobertos por
+`allowScripts`; nenhuma aprovação ou configuração global foi adicionada. O build
+com os binários instalados passou. Não foi necessário mudar dependências ou CI.
+
+## Histórico de verificação — etapa Node 22
 
 Evidências completas, scripts e capturas ficam fora do Git em
 `/home/ubuntu/.hermes/cache/scratch/ver-o-tempo-28-evidence`.
-Não houve push, PR, merge ou deploy; a issue deve permanecer aberta até o merge.
+Na execução original dessa etapa não houve push, criação de PR, merge ou deploy;
+posteriormente o PR32 foi aberto. O status operacional atual está na seção acima.
 
 Com Node 22.23.4: `npm ci`, lint com zero warnings, 491 testes em 25 arquivos
 (sem skip/todo e sem alterações nos testes) e build passaram. A primeira execução
