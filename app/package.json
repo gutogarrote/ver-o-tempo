@@ -47,9 +47,9 @@
     "eslint-plugin-jsx-a11y": "6.10.2",
     "eslint-plugin-testing-library": "7.16.2",
     "eslint-plugin-jest-dom": "5.10.1",
-    "wrangler": "4.149.0"
+    "wrangler": "4.155.0"
   },
   "engines": {
-    "node": "22.23.3"
+    "node": "26.13.0"
   }
 }

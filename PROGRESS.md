@@ -1,5 +1,42 @@
 # Progresso — Rotina da Nina
 
+## Manutenção de dependências — issue 28 (2026-10-28)
+
+Node 22.23.3 → 22.23.4 na etapa inicial; follow-up autorizado por Guto migra para
+Node **26.13.0 LTS (Lithium)** com npm **11.20.0**, suporte até **2029-04-30**.
+Wrangler 4.149.0 → 4.155.0 e correções compatíveis no lockfile de
+postcss-selector-parser, undici e zod. Tailwind 3.4.17, React e código funcional
+preservados, sem overrides. O CI já consome `.nvmrc`.
+
+Auditoria atual: 5 pacotes afetados (3 moderate, 2 high) → 0; omitindo dev: 0 → 0.
+O advisory histórico de braces foi retirado em 23/10. Zero no audit não é garantia
+absoluta de segurança. ESLint 9 segue depreciado por compatibilidade dos peers.
+
+Verificação atual com Node 26.13.0/npm 11.20.0 oficiais, isolados e com checksum
+conferido: npm ci, lint zero warnings, 491/491 testes em 25 arquivos e build passaram,
+executados em sequência. Audit completo e omit-dev: zero. Chromium: 552/552 checks,
+8/8 capturas e geometria iguais ao baseline em celular/desktop/TV. PWA offline passou.
+JS/CSS e demais assets iguais ao baseline, exceto as duas páginas de instruções
+atualizadas pelo pin no guia. Lockfile muda somente engines.node na raiz;
+resoluções, código funcional, CSS e testes preservados. Evidências separadas em
+`/home/ubuntu/.hermes/cache/scratch/ver-o-tempo-node26-evidence`.
+
+Verificação histórica da etapa Node 22 isolado: npm ci, lint zero warnings,
+491 testes/25 arquivos sem skip/todo
+e build passaram. Uma execução concorrente com Chromium teve um timeout de 5s;
+a repetição completa sem concorrência passou sem alterar testes ou limites.
+Chromium: 552/552 verificações em celular/desktop/TV, geometria e estilos medidos
+iguais ao baseline, sem overflow horizontal nem erros de página; smoke PWA offline
+com atalhos e URLs v1/v2 passou. Build anterior à atualização documental inteiro
+byte a byte igual ao baseline. A atualização do pin no guia muda apenas os assets
+de instruções gerados; bundles JS/CSS preservados.
+
+Ver [decisões, procedência e evidências](docs/dependency-maintenance.md).
+PR32 já aberto na mesma branch. Hermes fará verificação independente, push e
+atualização do PR; este follow-up gera commit local, sem push, edição de PR, merge
+ou deploy. Issue aberta até o merge.
+Os registros das fases abaixo descrevem seus respectivos momentos históricos.
+
 ## Instruções oficiais v2 — tarefa 29 (2026-10-10)
 
 V2 já implementada passa a ter guia autossuficiente em `docs/url-rotina-v2.md`,
@@ -22,7 +59,7 @@ Chromium de produção em TV/celular simulados verifica save/reload com storage 
 ambos os editores, offline, query/hash/histórico e link inválido com storage intacto.
 Normalização de query é simulada com `new URL`; launch Telegram Android físico pendente.
 
-## Estado atual (fase 4, 2026-10-09)
+## Histórico: fase 4 (2026-10-09)
 
 PWA Ver o Tempo com manifest raiz, ícones próprios 192/512 e maskable, Nunito e
 Fredoka locais licenciadas (SIL OFL 1.1). Worker nativo gerado pelo build, sem novas
